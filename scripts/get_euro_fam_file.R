@@ -1,12 +1,8 @@
-daf <- openxlsx::read.xlsx('ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.xlsx')
+daf <- read.table('1000g/20130606_g1k_3202_samples_ped_population.txt', header = T)
 
-LDAK_ROOT <- Sys.getenv('ldakRoot')
+euro_daf <- subset(daf, Superpopulation == 'EUR' & FatherID == 0 & MotherID == 0)
 
-old_euro_fam <- read.table(file.path(LDAK_ROOT, '1000G_vcf/hg19/euro.fam'))
+# Get unrelated European samples
+euro_fam <- data.frame(euro_daf[c('SampleID', 'SampleID', 'FatherID', 'MotherID', 'Sex')], Phenotype = -9)
 
-euro_pops <- c('GBR', 'FIN', 'IBS', 'CEU', 'TSI')
-#euro_pops <- c('GBR', 'CEU', 'IBS')
-
-euro_daf <- subset(daf, Population %in% euro_pops)
-
-# TODO overwrite euro.fam
+write.table(euro_fam, file = '1000g/euro.fam', sep = ' ', col.names = F, row.names = F, quote = F)

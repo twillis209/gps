@@ -1,3 +1,7 @@
 .snakemake
 1000g
 
+benchmarks
+*.out
+machine.file.*
+.Rhistory
