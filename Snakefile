@@ -82,6 +82,27 @@ rule ld:
      shell:
       "plink --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --r2 --ld-window-r2 0.2 --ld-window-kb 1000 --out 1000g/euro/qc/ld/{wildcards.chr}"
 
+rule join_gwas:
+     input:
+      A = "gwas/pid.tsv.gz",
+      B = "gwas/{imd}.tsv.gz"
+     output:
+      AB = "gwas/pid_{imd}.tsv.gz"
+     threads: 8
+     shell:
+      "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} -o {output.AB} -nt 8"
+
+rule subset_ld:
+     input:
+      ("1000g/euro/qc/ld/chr%d.ld" % x for x in range(1,23)),
+      "1000g/euro/qc/ld/chrX.ld",
+      "gwas/pid_{imd}.tsv.gz"
+     output:
+      ("gwas/pid_{imd}/ld/chr%d.ld" % x for x in range(1,23)),
+      "gwas/pid_{imd}/ld/chrX.ld"
+     shell:
+      "Rscript scripts/subset_ld_with_merged_gwas.R -i gwas/pid_{wildcards.imd}  -ld 1000g/euro/qc/ld -o gwas/pid_{wildcards.imd}/ld"
+
 rule all:
      input:
       ("1000g/euro/qc/ld/chr%d.ld" % x for x in range(1,23)),

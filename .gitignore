@@ -5,3 +5,4 @@ benchmarks
 *.out
 machine.file.*
 .Rhistory
+gwas
