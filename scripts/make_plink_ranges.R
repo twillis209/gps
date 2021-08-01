@@ -4,7 +4,7 @@ library(argparse)
 parser <- ArgumentParser(description = 'Produce PLINK SNP ID files to extract designated SNPs from PLINK files')
 parser$add_argument('-i', '--gwas_file', type = 'character', help = 'Path to merged GWAS summary statistics file')
 parser$add_argument('-b', '--bim_dir', type = 'character', help = 'Path to directory containing bim files')
-parser$add_argument('-r', '--bim_regex', type = 'character', help = 'Regex for bim files. Must contain \'%d\' for autosome numbers.', default = 'chr%d.bim')
+parser$add_argument('-r', '--bim_regex', type = 'character', help = 'Regex for bim files. Must contain \'%s\' for autosome numbers.', default = 'chr%s.bim')
 parser$add_argument('-chr', type = 'character', help = 'Label of chromosome column in GWAS file', default = 'CHR38')
 parser$add_argument('-bp', type = 'character', help = 'Label of BP column in GWAS file', default = 'BP38')
 parser$add_argument('-ref', type = 'character', help = 'Label of reference allele column in GWAS file', default = 'REF')
@@ -22,6 +22,11 @@ setDTthreads(threads=args$no_of_threads)
 
 gwas_dat <- fread(args$gwas_file, sep = '\t', header = T, select = c(args$chr, args$bp, args$ref, args$alt, args$prin, args$aux))
 
+gwas_dat[, args$chr := as.character(get(args$chr))]
+
+# 1kGP data encode chrX as chr23
+gwas_dat[get(args$chr) == 'X', args$chr := '23']
+
 #gwas_dat[, ref_short := ifelse(nchar(REF) > 10, substr(REF, 1, 10), REF)]
 #gwas_dat[, alt_short := ifelse(nchar(ALT) > 10, substr(ALT, 1, 10), ALT)]
 #
@@ -30,7 +35,7 @@ gwas_dat <- fread(args$gwas_file, sep = '\t', header = T, select = c(args$chr, a
 #
 #gwas_dat[, c('ref_short', 'alt_short') := NULL]
 
-for(i in 1:22) {
+for(i in c(1:22, 'X')) {
   bim_dat <- fread(file.path(args$bim_dir, sprintf(args$bim_regex, i)), sep = '\t', header = F, col.names = c('CHR38', 'ID', 'Cm', 'BP38', 'A1', 'A2'))
 
   bim_dat[, CHR38 := as.character(CHR38)]
@@ -48,5 +53,5 @@ for(i in 1:22) {
 
   bim_join <- bim_join[, .(ID)]
 
-  fwrite(bim_join, file = file.path(args$output_dir, sprintf("chr%d.txt", i)), row.names = F, sep = ' ', col.names = F, quote = F)
+  fwrite(bim_join, file = file.path(args$output_dir, sprintf("chr%s.txt", i)), row.names = F, sep = ' ', col.names = F, quote = F)
 }
