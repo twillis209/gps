@@ -22,9 +22,6 @@ setDTthreads(threads=args$no_of_threads)
 
 gwas_dat <- fread(args$gwas_file, sep = '\t', header = T, select = c(args$chr, args$bp, args$ref, args$alt, args$prin, args$aux))
 
-gwas_dat[, args$chr := as.character(get(args$chr))]
-gwas_dat[get(args$chr) == 'X', args$chr := '23']
-
 prune_dat <- fread(args$prune_file, sep = ' ', header = F)
 
 #prune_dat[, c('CHR38', 'BP38', 'ALT', 'REF') := tstrsplit(V1, ':')]
@@ -41,7 +38,5 @@ gwas_dat[, c('ref_short', 'alt_short') := NULL]
 gwas_dat <- gwas_dat[alt_ref %in% prune_dat$V1 | ref_alt %in% prune_dat$V1]
 
 gwas_dat[, c('ref_alt', 'alt_ref') := NULL]
-
-gwas_dat[get(args$chr) == '23', args$chr := 'X']
 
 fwrite(gwas_dat, file = args$output_file, sep = '\t', col.names = T, row.names = F, quote = F)
