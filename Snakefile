@@ -59,49 +59,12 @@ rule qc:
      shell:
       "plink --memory 16000 --threads 8 --bfile 1000g/euro/{wildcards.chr}_euro --geno 0.1 --mind 0.1 --maf 0.005 --hwe 1e-50 --make-bed --silent --out 1000g/euro/qc/{wildcards.chr}_qc"
 
-rule maf:
-     input:
-      "1000g/euro/qc/{chr}_qc.bed",
-      "1000g/euro/qc/{chr}_qc.bim",
-      "1000g/euro/qc/{chr}_qc.fam"
-     output:
-      "1000g/euro/qc/maf/{chr}.frq"
-     shell:
-      "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --freq --out 1000g/euro/qc/maf/{wildcards.chr}"
-
-rule ld:
-     input:
-      "1000g/euro/qc/{chr}_qc.bed",
-      "1000g/euro/qc/{chr}_qc.bim",
-      "1000g/euro/qc/{chr}_qc.fam"
-     output:
-      "1000g/euro/qc/ld/{chr}.ld"
-     benchmark:
-      "benchmarks/{chr}_ld_benchmark.txt"
-     threads: 8
-     shell:
-      "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --r2 --ld-window-r2 0.2 --ld-window-kb 1000 --out 1000g/euro/qc/ld/{wildcards.chr}"
-
-rule prune_whole_set:
-     input:
-      "1000g/euro/qc/{chr}_qc.bed",
-      "1000g/euro/qc/{chr}_qc.bim",
-      "1000g/euro/qc/{chr}_qc.fam"
-     output:
-      "1000g/euro/qc/prune_whole/{chr}.prune.in",
-      "1000g/euro/qc/prune_whole/{chr}.prune.out",
-     benchmark:
-      "benchmarks/{chr}_prune_whole_benchmark.txt"
-     threads: 8
-     shell:
-      "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --indep-pairwise 1000kb 50 0.2 --out 1000g/euro/qc/prune_whole/{wildcards.chr}"
-
 rule join_gwas:
      input:
       A = "gwas/pid.tsv.gz",
       B = "gwas/{imd}.tsv.gz"
      output:
-      AB = "gwas/pid_{imd}.tsv.gz"
+      AB = "gwas/pid_{imd}/pid_{imd}.tsv.gz"
      threads: 8
      shell:
       "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} -o {output.AB} -nt 8"
@@ -109,7 +72,7 @@ rule join_gwas:
 rule make_plink_ranges:
      input:
       ("1000g/euro/qc/chr%d_qc.bim" % x for x in range(1,23)),
-      gwas_file = "gwas/pid_{imd}.tsv.gz"
+      gwas_file = "gwas/pid_{imd}/pid_{imd}.tsv.gz"
      output:
       ("gwas/pid_{imd}/matching_ids/chr%d.txt" % x for x in range(1,23))
      params:
@@ -162,7 +125,7 @@ rule cat_prune_ranges:
 rule prune_gwas:
      input:
       prune_file = "gwas/pid_{imd}/prune/all.prune.in",
-      gwas_file = "gwas/pid_{imd}.tsv.gz"
+      gwas_file = "gwas/pid_{imd}/pid_{imd}.tsv.gz"
      output:
       "gwas/pid_{imd}/pruned_pid_{imd}.tsv.gz"
      threads: 2
@@ -177,6 +140,53 @@ rule compute_gps:
      threads: 8
      shell:
       "Rscript scripts/run_gps.R -i {input.pruned_gwas_file} -o {output} -nt {threads}"
+
+"""
+rule maf:
+     input:
+      "1000g/euro/qc/{chr}_qc.bed",
+      "1000g/euro/qc/{chr}_qc.bim",
+      "1000g/euro/qc/{chr}_qc.fam"
+     output:
+      "1000g/euro/qc/maf/{chr}.frq"
+     shell:
+      "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --freq --out 1000g/euro/qc/maf/{wildcards.chr}"
+
+rule ld:
+     input:
+      "1000g/euro/qc/{chr}_qc.bed",
+      "1000g/euro/qc/{chr}_qc.bim",
+      "1000g/euro/qc/{chr}_qc.fam"
+     output:
+      "1000g/euro/qc/ld/{chr}.ld"
+     benchmark:
+      "benchmarks/{chr}_ld_benchmark.txt"
+     threads: 8
+     shell:
+      "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --r2 --ld-window-r2 0.2 --ld-window-kb 1000 --out 1000g/euro/qc/ld/{wildcards.chr}"
+
+rule prune_whole_set:
+     input:
+      "1000g/euro/qc/{chr}_qc.bed",
+      "1000g/euro/qc/{chr}_qc.bim",
+      "1000g/euro/qc/{chr}_qc.fam"
+     output:
+      "1000g/euro/qc/prune_whole/{chr}.prune.in",
+      "1000g/euro/qc/prune_whole/{chr}.prune.out",
+     benchmark:
+      "benchmarks/{chr}_prune_whole_benchmark.txt"
+     threads: 8
+     shell:
+      "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --indep-pairwise 1000kb 50 0.2 --out 1000g/euro/qc/prune_whole/{wildcards.chr}"
+rule all:
+     input:
+      ("gwas/pid_{imd}/plink/pruned/chr%d.bed" % x for x in range(1,23)),
+      ("gwas/pid_{imd}/plink/pruned/chr%d.bim" % x for x in range(1,23)),
+      ("gwas/pid_{imd}/plink/pruned/chr%d.fam" % x for x in range(1,23))
+     output:
+      "gwas/pid_{imd}/done.txt"
+     shell:
+      "touch {output}"
 
 rule prune_subset:
      input:
@@ -215,14 +225,4 @@ rule ld_all:
      input:
       ("1000g/euro/qc/ld/chr%d.ld" % x for x in range(1,23)),
       "1000g/euro/qc/ld/chrX.ld"
-"""
-rule all:
-     input:
-      ("gwas/pid_{imd}/plink/pruned/chr%d.bed" % x for x in range(1,23)),
-      ("gwas/pid_{imd}/plink/pruned/chr%d.bim" % x for x in range(1,23)),
-      ("gwas/pid_{imd}/plink/pruned/chr%d.fam" % x for x in range(1,23))
-     output:
-      "gwas/pid_{imd}/done.txt"
-     shell:
-      "touch {output}"
 """

@@ -22,6 +22,8 @@ setDTthreads(threads=args$no_of_threads)
 
 gwas_dat <- fread(args$gwas_file, sep = '\t', header = T, select = c(args$chr, args$bp, args$ref, args$alt, args$prin, args$aux))
 
+gwas_dat[ , args$chr := as.character(get(args$chr))]
+
 #gwas_dat[, ref_short := ifelse(nchar(REF) > 10, substr(REF, 1, 10), REF)]
 #gwas_dat[, alt_short := ifelse(nchar(ALT) > 10, substr(ALT, 1, 10), ALT)]
 #
