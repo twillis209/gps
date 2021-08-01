@@ -6,3 +6,4 @@ benchmarks
 machine.file.*
 .Rhistory
 gwas
+plink.log

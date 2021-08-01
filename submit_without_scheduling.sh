@@ -67,4 +67,5 @@ echo -e "\nExecuting command:\n==================\n\n"
 # Needed to run the code written to .bashrc by the conda init program
 source  /home/tw395/.bashrc
 conda activate gps
+#snakemake --cores 8 $1
 snakemake --cores 8 $1

@@ -15,9 +15,7 @@ parser$add_argument('-nt', '--no_of_threads', type = 'integer', help = 'Number o
 
 args_vec <- c('-i', 'gwas/pid_aster.tsv.gz', '-ld', '1000g/euro/qc/ld', '-o', 'gwas/pid_aster/ld', '-nt', '8')
 
-# TODO REVERT
-args <- parser$parse_args(args_vec)
-#args <- parser$parse_args()
+args <- parser$parse_args()
 
 setDTthreads(args$no_of_threads)
 
