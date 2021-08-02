@@ -141,6 +141,34 @@ rule compute_gps:
      shell:
       "Rscript scripts/run_gps.R -i {input.pruned_gwas_file} -o {output} -nt {threads}"
 
+rule gps_for_all_selected_imds:
+     input:
+      ["gwas/pid_acne/gps.tsv", "gwas/pid_fibrom/gps.tsv", "gwas/pid_pbc/gps.tsv",
+"gwas/pid_addi/gps.tsv", "gwas/pid_ges-dia/gps.tsv",
+"gwas/pid_agran/gps.tsv", "gwas/pid_glom/gps.tsv", "gwas/pid_polymyal/gps.tsv",
+"gwas/pid_all-conj/gps.tsv", "gwas/pid_gout/gps.tsv", "gwas/pid_polyp/gps.tsv",
+"gwas/pid_all-urt/gps.tsv", "gwas/pid_hyperpara/gps.tsv", "gwas/pid_pros/gps.tsv",
+"gwas/pid_ank-spond/gps.tsv", "gwas/pid_hyperthy/gps.tsv", "gwas/pid_psc/gps.tsv",
+"gwas/pid_arthr-nos/gps.tsv", "gwas/pid_hypothy/gps.tsv", "gwas/pid_pso-arthr/gps.tsv",
+"gwas/pid_arthr/gps.tsv", "gwas/pid_ibd/gps.tsv", 	 "gwas/pid_pso/gps.tsv",
+"gwas/pid_aster/gps.tsv", "gwas/pid_ibs/gps.tsv", 	 "gwas/pid_ra/gps.tsv",
+"gwas/pid_asthma/gps.tsv", "gwas/pid_igad/gps.tsv", "gwas/pid_rheum-fev/gps.tsv",
+"gwas/pid_auto-dis/gps.tsv", "gwas/pid_inf-bre/gps.tsv", "gwas/pid_rhin/gps.tsv",
+"gwas/pid_cardiomyo/gps.tsv", "gwas/pid_inf-cer-ute/gps.tsv", "gwas/pid_rosacea/gps.tsv",
+"gwas/pid_coeliac/gps.tsv", "gwas/pid_inf-gyn/gps.tsv", "gwas/pid_sarc/gps.tsv",
+"gwas/pid_copd/gps.tsv", "gwas/pid_inf-ute/gps.tsv", "gwas/pid_sjogren/gps.tsv",
+"gwas/pid_crohns-med/gps.tsv", "gwas/pid_jia/gps.tsv", 	 "gwas/pid_sle/gps.tsv",
+"gwas/pid_crohns/gps.tsv", "gwas/pid_lada/gps.tsv", "gwas/pid_spondylo/gps.tsv",
+"gwas/pid_derm-ecz/gps.tsv", "gwas/pid_licp/gps.tsv", "gwas/pid_still/gps.tsv",
+"gwas/pid_desq/gps.tsv", "gwas/pid_licsa/gps.tsv", "gwas/pid_sulf-all/gps.tsv",
+"gwas/pid_divert/gps.tsv", "gwas/pid_misc-blood/gps.tsv", "gwas/pid_sys-scl/gps.tsv",
+"gwas/pid_drug-all/gps.tsv", "gwas/pid_misc-immune/gps.tsv", "gwas/pid_t1d/gps.tsv",
+"gwas/pid_dyschr-vit/gps.tsv", "gwas/pid_ms/gps.tsv", 	 "gwas/pid_t2d/gps.tsv",
+"gwas/pid_endocard/gps.tsv", "gwas/pid_myal/gps.tsv", "gwas/pid_thy/gps.tsv",
+"gwas/pid_endomet/gps.tsv", "gwas/pid_myas/gps.tsv", "gwas/pid_uc/gps.tsv",
+"gwas/pid_ent-col/gps.tsv", "gwas/pid_pad/gps.tsv",
+"gwas/pid_eos-eso/gps.tsv", "gwas/pid_paed-all/gps.tsv"]
+
 """
 rule maf:
      input:
@@ -159,8 +187,6 @@ rule ld:
       "1000g/euro/qc/{chr}_qc.fam"
      output:
       "1000g/euro/qc/ld/{chr}.ld"
-     benchmark:
-      "benchmarks/{chr}_ld_benchmark.txt"
      threads: 8
      shell:
       "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --r2 --ld-window-r2 0.2 --ld-window-kb 1000 --out 1000g/euro/qc/ld/{wildcards.chr}"
@@ -173,11 +199,10 @@ rule prune_whole_set:
      output:
       "1000g/euro/qc/prune_whole/{chr}.prune.in",
       "1000g/euro/qc/prune_whole/{chr}.prune.out",
-     benchmark:
-      "benchmarks/{chr}_prune_whole_benchmark.txt"
      threads: 8
      shell:
       "plink --memory 16000 --threads 8 --bfile 1000g/euro/qc/{wildcards.chr}_qc --indep-pairwise 1000kb 50 0.2 --out 1000g/euro/qc/prune_whole/{wildcards.chr}"
+
 rule all:
      input:
       ("gwas/pid_{imd}/plink/pruned/chr%d.bed" % x for x in range(1,23)),
@@ -209,7 +234,7 @@ rule subset_ld:
      input:
       ("1000g/euro/qc/ld/chr%d.ld" % x for x in range(1,23)),
       "1000g/euro/qc/ld/chrX.ld",
-      "gwas/pid_{imd}.tsv.gz"
+      "gwas/pid_{imd}/pid_{imd}.tsv.gz"
      output:
       ("gwas/pid_{imd}/ld/chr%d.ld" % x for x in range(1,23)),
       "gwas/pid_{imd}/ld/chrX.ld"

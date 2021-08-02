@@ -68,4 +68,4 @@ echo -e "\nExecuting command:\n==================\n\n"
 source  /home/tw395/.bashrc
 conda activate gps
 #snakemake --cores 8 $1
-snakemake --cores 8 $1
+snakemake --cores 8 -j 1 $1
