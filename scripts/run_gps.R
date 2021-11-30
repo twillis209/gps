@@ -22,6 +22,9 @@ RcppParallel::setThreadOptions(numThreads = args$no_of_threads)
 
 gwas_dat <- fread(args$gwas_file, sep = '\t', header = T, select = c(args$chr, args$bp, args$ref, args$alt, args$prin, args$aux))
 
+gwas_dat[ , args$prin := as.numeric(get(args$prin))]
+gwas_dat[ , args$aux := as.numeric(get(args$aux))]
+
 gps_stat <- pidProjCode::gps_test_stat(gwas_dat[[args$prin]], gwas_dat[[args$aux]])
 
 results_dat <- data.table(gps = gps_stat, no_snps = nrow(gwas_dat))

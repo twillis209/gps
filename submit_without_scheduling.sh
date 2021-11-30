@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -J ld_snakemake
+#SBATCH -J gps_snakemake
 #SBATCH -A MRC-BSU-SL2-CPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --time=3:00:00
+#SBATCH --time=4:00:00
 #SBATCH --mail-type=FAIL
 #SBATCH -p skylake,skylake-himem,cclake
 #SBATCH -o %j.out
@@ -67,5 +67,4 @@ echo -e "\nExecuting command:\n==================\n\n"
 # Needed to run the code written to .bashrc by the conda init program
 source  /home/tw395/.bashrc
 conda activate gps
-#snakemake --cores 8 $1
 snakemake --cores 8 -j 1 $1
