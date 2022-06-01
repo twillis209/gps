@@ -13,19 +13,13 @@ parser$add_argument('-aux', type = 'character', help = 'Label of auxiliary p-val
 parser$add_argument('-o', '--output_file', type = 'character', help = 'Path to output file', required = T)
 parser$add_argument('-nt', '--no_of_threads', type = 'integer', help = 'Number of threads to use', default = 1)
 
-#args_vec <- c('-i', 'gwas/pid_aster.tsv.gz', '-p', 'gwas/pid_aster/prune/all.prune.in', '-o', 'gwas/pid_aster/pruned/pid_aster.tsv.gz', '-nt', 8)
-#args<-parser$parse_args(args_vec)
-
 args<-parser$parse_args()
 
 setDTthreads(threads=args$no_of_threads)
 
-gwas_dat <- fread(args$gwas_file, sep = '\t', header = T, select = c(args$chr, args$bp, args$ref, args$alt, args$prin, args$aux))
+gwas_dat <- fread(args$gwas_file, sep = '\t', header = T)
 
 prune_dat <- fread(args$prune_file, sep = ' ', header = F)
-
-#prune_dat[, c('CHR38', 'BP38', 'ALT', 'REF') := tstrsplit(V1, ':')]
-#prune_dat[, V1 := NULL]
 
 gwas_dat[, ref_short := ifelse(nchar(REF) > 10, substr(REF, 1, 10), REF)]
 gwas_dat[, alt_short := ifelse(nchar(ALT) > 10, substr(ALT, 1, 10), ALT)]

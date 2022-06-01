@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH -J gps_snakemake
+#SBATCH -J imd_gps_pipeline
 #SBATCH -A MRC-BSU-SL2-CPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --time=4:00:00
+#SBATCH --cpus-per-task=16
+#SBATCH --time=8:00:00
 #SBATCH --mail-type=FAIL
-#SBATCH -p skylake,skylake-himem,cclake
+#SBATCH -p cclake,cclake-himem,icelake,icelake-himem,skylake,skylake-himem
 #SBATCH -o %j.out
 
 #! Number of nodes and tasks per node allocated by SLURM (do not change):
@@ -24,11 +24,11 @@ module load rhel7/default-peta4            # REQUIRED - loads the basic environm
 module load r-4.0.2-gcc-5.4.0-xyx46xb
 export R_LIBS=/home/tw395/R/4.0.2/libs:$R_LIBS
 
-workdir="/home/tw395/rds/hpc-work/gps"
+workdir="$SLURM_SUBMIT_DIR"
 
 #! Are you using OpenMP (NB this is unrelated to OpenMPI)? If so increase this
 #! safe value to no more than 32:
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=16
 
 #! Number of MPI tasks to be started by the application per node and in total (do not change):
 np=$[${numnodes}*${mpi_tasks_per_node}]
@@ -66,5 +66,9 @@ echo -e "\nExecuting command:\n==================\n\n"
 
 # Needed to run the code written to .bashrc by the conda init program
 source  /home/tw395/.bashrc
-conda activate gps
-snakemake --cores 8 -j 1 $1
+# Needed to use my libs
+source  /home/tw395/.bash_profile
+
+conda activate gps_paper_pipeline
+
+python3 -m snakemake --cores 16 --keep-going --default-resources time=5 mem_mb=3420 --scheduler greedy "${@}"

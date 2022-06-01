@@ -1,8 +1,90 @@
+import datetime
+import re
+import os
+
 wildcard_constraints:
   chr = "chr[0-9X]{1,2}"
 
+max_time = datetime.timedelta(seconds=6*60*60)
+
 def get_mem_mb(wildcards, threads):
     return threads * 3420
+
+def get_permute_time(wildcards, threads):
+    return str(min(max_time, datetime.timedelta(seconds=300+3*((int(wildcards.draws)/300)*3600)/int(threads))))
+
+trait_pairs = ["pid_acne",
+"pid_fibrom",
+"pid_pbc",
+"pid_addi",
+"pid_ges-dia",
+"pid_agran",
+"pid_glom",
+"pid_polymyal",
+"pid_all-conj",
+"pid_gout",
+"pid_polyp",
+"pid_all-urt",
+"pid_hyperpara",
+"pid_pros",
+"pid_ank-spond",
+"pid_hyperthy",
+"pid_psc",
+"pid_arthr-nos",
+"pid_hypothy",
+"pid_pso-arthr",
+"pid_arthr",
+"pid_ibd",
+"pid_pso",
+"pid_aster",
+"pid_ibs",
+"pid_ra",
+"pid_asthma",
+"pid_igad",
+"pid_rheum-fev",
+"pid_auto-dis",
+"pid_inf-bre",
+"pid_rhin",
+"pid_cardiomyo",
+"pid_inf-cer-ute",
+"pid_rosacea",
+"pid_coeliac",
+"pid_inf-gyn",
+"pid_sarc",
+"pid_copd",
+"pid_inf-ute",
+"pid_sjogren",
+"pid_crohns-med",
+"pid_jia",
+"pid_sle",
+"pid_crohns",
+"pid_lada",
+"pid_spondylo",
+"pid_derm-ecz",
+"pid_licp",
+"pid_still",
+"pid_desq",
+"pid_licsa",
+"pid_sulf-all",
+"pid_divert",
+"pid_misc-blood",
+"pid_sys-scl",
+"pid_drug-all",
+"pid_misc-immune",
+"pid_t1d",
+"pid_dyschr-vit",
+"pid_ms",
+"pid_t2d",
+"pid_endocard",
+"pid_myal",
+"pid_thy",
+"pid_endomet",
+"pid_myas",
+"pid_uc",
+"pid_ent-col",
+"pid_pad",
+"pid_eos-eso",
+"pid_paed-all"]
 
 rule download_1000g_genotype_data:
      output:
@@ -15,7 +97,7 @@ rule download_1000g_genotype_data:
 
 rule download_1000g_sample_metadata:
      output:
-      "resources/1000g/20130606_g1k_3202_samples_ped_population.txt"
+      temp("resources/1000g/20130606_g1k_3202_samples_ped_population.txt")
      shell:
       "wget -O resources/1000g/20130606_g1k_3202_samples_ped_population.txt http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/20130606_g1k_3202_samples_ped_population.txt"
 
@@ -23,9 +105,9 @@ rule vcf_to_bed:
      input:
       "resources/1000g/{chr}.vcf.gz"
      output:
-      "resources/1000g/{chr}.bed",
-      "resources/1000g/{chr}.bim",
-      "resources/1000g/{chr}.fam"
+      temp("resources/1000g/{chr}.bed"),
+      temp("resources/1000g/{chr}.bim"),
+      temp("resources/1000g/{chr}.fam")
      threads: 8
      resources:
          mem_mb=get_mem_mb
@@ -47,9 +129,9 @@ rule get_euro_samples:
       "resources/1000g/{chr}.fam",
       fam_file = "resources/1000g/euro.fam"
      output:
-      "resources/1000g/euro/{chr}_euro.bed",
-      "resources/1000g/euro/{chr}_euro.bim",
-      "resources/1000g/euro/{chr}_euro.fam"
+      temp("resources/1000g/euro/{chr}_euro.bed"),
+      temp("resources/1000g/euro/{chr}_euro.bim"),
+      temp("resources/1000g/euro/{chr}_euro.fam")
      params:
       bfile = "resources/1000g/{chr}",
       out = "resources/1000g/euro/{chr}_euro"
@@ -82,21 +164,27 @@ rule join_gwas:
       A = "resources/gwas/pid.tsv.gz",
       B = "resources/gwas/{imd}.tsv.gz"
      output:
-      AB = "resources/gwas/pid_{imd}/pid_{imd}.tsv.gz"
-     threads: 8
+      AB = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pid_{imd}_{join}.tsv.gz"
+     threads: 2
+     params:
+         mhc = lambda wildcards: '-sans_mhc' if wildcards.join == 'sans_mhc' else ''
+     group: "gps"
      shell:
-      "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} -o {output.AB} -nt {threads}"
+      "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} {params.mhc} -o {output.AB} -nt {threads}"
 
 rule make_plink_ranges:
      input:
       ("resources/1000g/euro/qc/chr%d_qc.bim" % x for x in range(1,23)),
-      gwas_file = "resources/gwas/pid_{imd}/pid_{imd}.tsv.gz"
+      gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pid_{imd}_{join}.tsv.gz"
      output:
-      ("resources/gwas/pid_{imd}/matching_ids/chr%d.txt" % x for x in range(1,23))
+      ("resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids/chr%d.txt" % x for x in range(1,23))
      params:
       input_dir = "resources/1000g/euro/qc",
-      output_dir = "resources/gwas/pid_{imd}/matching_ids"
-     threads: 2
+      output_dir = "resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids"
+     threads: 1
+     resources:
+        mem_mb=get_mem_mb
+     group: "gps"
      shell:
       "Rscript scripts/make_plink_ranges.R -i {input.gwas_file} -b {params.input_dir} -r chr%d_qc.bim -o {params.output_dir} -nt {threads}"
 
@@ -105,254 +193,139 @@ rule subset_reference:
       "resources/1000g/euro/qc/{chr}_qc.bed",
       "resources/1000g/euro/qc/{chr}_qc.bim",
       "resources/1000g/euro/qc/{chr}_qc.fam",
-      range_file = "resources/gwas/pid_{imd}/matching_ids/{chr}.txt"
+      range_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids/{chr}.txt"
      output:
-      temp("resources/gwas/pid_{imd}/plink/{chr}.bed"),
-      temp("resources/gwas/pid_{imd}/plink/{chr}.bim"),
-      temp("resources/gwas/pid_{imd}/plink/{chr}.fam")
+      temp("resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.bed"),
+      temp("resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.bim"),
+      temp("resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.fam")
      params:
       bfile = "resources/1000g/euro/qc/{chr}_qc",
-      out = "resources/gwas/pid_{imd}/plink/{chr}"
-     threads: 8
+      out = "resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}"
+     threads: 1
      resources:
         mem_mb=get_mem_mb
+     group: "gps"
      shell:
       "plink --memory {resources.mem_mb} --threads {threads} --bfile {params.bfile} --extract {input.range_file} --make-bed --out {params.out}"
 
-rule make_prune_ranges:
+rule make_pruned_ranges:
      input:
-      "resources/gwas/pid_{imd}/plink/{chr}.bed",
-      "resources/gwas/pid_{imd}/plink/{chr}.bim",
-      "resources/gwas/pid_{imd}/plink/{chr}.fam"
+      "resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.bed",
+      "resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.bim",
+      "resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.fam"
      output:
-      "resources/gwas/pid_{imd}/prune/{chr}.prune.in",
-      "resources/gwas/pid_{imd}/prune/{chr}.prune.out"
+      "resources/gwas/pid_{imd}/pid_{imd}_{join}/prune/{chr}.prune.in",
+      "resources/gwas/pid_{imd}/pid_{imd}_{join}/prune/{chr}.prune.out"
      params:
-       bfile = "resources/gwas/pid_{imd}/plink/{chr}",
-       prune_out = "resources/gwas/pid_{imd}/prune/{chr}"
-     threads: 8
+       bfile = "resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}",
+       prune_out = "resources/gwas/pid_{imd}/pid_{imd}_{join}/prune/{chr}"
+     threads: 1
      resources:
         mem_mb=get_mem_mb
+     group: "gps"
      shell:
       "plink --memory {resources.mem_mb} --threads {threads} --bfile {params.bfile} --indep-pairwise 1000kb 50 0.2 --out {params.prune_out}"
 
-rule cat_prune_ranges:
+rule cat_pruned_ranges:
      input:
-      ("resources/gwas/pid_{imd}/prune/chr%d.prune.in" % x for x in range(1,23))
+      ("resources/gwas/pid_{imd}/pid_{imd}_{join}/prune/chr%d.prune.in" % x for x in range(1,23))
      output:
-      "resources/gwas/pid_{imd}/prune/all.prune.in"
+      "resources/gwas/pid_{imd}/pid_{imd}_{join}/prune/all.prune.in"
+     threads: 1
+     group: "gps"
      shell:
       "for x in {input}; do cat $x >>{output}; done"
 
 rule prune_gwas:
      input:
-      prune_file = "resources/gwas/pid_{imd}/prune/all.prune.in",
-      gwas_file = "resources/gwas/pid_{imd}/pid_{imd}.tsv.gz"
+      prune_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/prune/all.prune.in",
+      gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pid_{imd}_{join}.tsv.gz"
      output:
-      "resources/gwas/pid_{imd}/pruned_pid_{imd}.tsv.gz"
-     threads: 2
+      "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv.gz"
+     threads: 1
+     group: "gps"
      shell:
       "Rscript scripts/prune_gwas.R -i {input.gwas_file}  -p {input.prune_file} -o {output} -nt {threads}"
 
 rule unzip_pruned_joined_gwas:
     input:
-        "resources/gwas/pid_{imd}/pruned_pid_{imd}.tsv.gz"
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv.gz"
     output:
-        "resources/gwas/pid_{imd}/pruned_pid_{imd}.tsv"
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
+    group: "gps"
     shell:
         "gunzip -c {input} >{output}"
 
-rule compute_gps:
+rule compute_gps_for_trait_pair:
      input:
-      "resources/gwas/pid_{imd}/pruned_pid_{imd}.tsv"
+         "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
      output:
-      "results/pid_{imd}_gps.tsv"
+      "results/pid_{imd}/pid_{imd}_{join}_gps_value.tsv"
+     threads: 1
+     group: "gps"
      shell:
-      "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -o {output}"
+      "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p -f addEpsilon -l -o {output}"
+
+rule compute_gps_for_trait_pair_with_naive_ecdf_algo:
+    input:
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
+    output:
+        "results/pid_{imd}/pid_{imd}_{join}_gps_value_naive.tsv"
+    threads: 4
+    resources:
+        time = 40
+    group: "gps"
+    shell:
+        "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -o {output}"
 
 rule permute_trait_pair:
     input:
-        "resources/gwas/pid_{imd}/pruned_pid_{imd}.tsv"
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
     output:
-        "results/permutations/pid_{imd}.tsv"
-    threads: 8
+        "results/permutations/{draws}_draws/pid_{imd}_{join}.tsv"
+    threads: 10
     resources:
-        mem_mb=get_mem_mb
+        mem_mb = get_mem_mb,
+        time = get_permute_time
     shell:
-        "scripts/gps_cpp/build/apps/permuteTraitsCLI -i {input} -o {output} -a P.A -b P.B -c {threads} -n 375"
+        "scripts/gps_cpp/build/apps/permuteTraitsCLI -i {input} -o {output} -a P.A -b P.B -c {threads} -n {wildcards.draws}"
 
-rule compute_gps_p_value:
+rule fit_gev_and_compute_gps_pvalue_for_trait_pair:
     input:
-        gps_file = "results/pid_{imd}_gps.tsv",
-        perm_file = "results/permutations/pid_{imd}.tsv"
+      gps_file = "results/pid_{imd}/pid_{imd}_{join}_gps_value.tsv",
+      perm_file = "results/permutations/{draws}_draws/pid_{imd}_{join}.tsv"
     output:
-        "results/pid_{imd}_gps_pvalue.tsv"
+      "results/pid_{imd}/pid_{imd}_{join}_{draws}_draws_gps_pvalue.tsv"
     shell:
-        "Rscript scripts/compute_gps_pvalue.R -g {input.gps_file} -p {input.perm_file} -a pid -b {wildcards.imd} -o {output}"
+      "Rscript scripts/fit_gev_and_compute_gps_pvalue.R -g {input.gps_file} -p {input.perm_file} -a pid -b {wildcards.imd} -o {output}"
+
+rule collate_gps_pvalue_data:
+    input:
+        [y for y in [f"results/{x}/{x}_all_3000_draws_gps_pvalue.tsv" for x in trait_pairs] if os.path.exists(y)]
+    output:
+        "results/all_3000_draws_gps_pvalues.tsv"
+    run:
+        with open(output[0], 'w') as outfile:
+            outfile.write("trait_A\ttrait_B\tgps\tn\tloc\tloc.sd\tscale\tscale.sd\tshape\tshape.sd\tpval\n")
+            for x in input:
+                with open(x, 'r') as infile:
+                    print(x)
+                    trait_B = re.match('results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_all_3000_draws_gps_pvalue.tsv', x).groups()[0]
+                    line = infile.readline()
+                    line = infile.readline()
+
+                outfile.write(f"pid\t{trait_B}\t{line}")
 
 rule gps_for_all_selected_imds:
      input:
-        "results/pid_acne_gps_pvalue.tsv",
-        "results/pid_fibrom_gps_pvalue.tsv",
-        "results/pid_pbc_gps_pvalue.tsv",
-        "results/pid_addi_gps_pvalue.tsv",
-        "results/pid_ges-dia_gps_pvalue.tsv",
-        "results/pid_agran_gps_pvalue.tsv",
-        "results/pid_glom_gps_pvalue.tsv",
-        "results/pid_polymyal_gps_pvalue.tsv",
-        "results/pid_all-conj_gps_pvalue.tsv",
-        "results/pid_gout_gps_pvalue.tsv",
-        "results/pid_polyp_gps_pvalue.tsv",
-        "results/pid_all-urt_gps_pvalue.tsv",
-        "results/pid_hyperpara_gps_pvalue.tsv",
-        "results/pid_pros_gps_pvalue.tsv",
-        "results/pid_ank-spond_gps_pvalue.tsv",
-        "results/pid_hyperthy_gps_pvalue.tsv",
-        "results/pid_psc_gps_pvalue.tsv",
-        "results/pid_arthr-nos_gps_pvalue.tsv",
-        "results/pid_hypothy_gps_pvalue.tsv",
-        "results/pid_pso-arthr_gps_pvalue.tsv",
-        "results/pid_arthr_gps_pvalue.tsv",
-        "results/pid_ibd_gps_pvalue.tsv",
-        "results/pid_pso_gps_pvalue.tsv",
-        "results/pid_aster_gps_pvalue.tsv",
-        "results/pid_ibs_gps_pvalue.tsv",
-        "results/pid_ra_gps_pvalue.tsv",
-        "results/pid_asthma_gps_pvalue.tsv",
-        "results/pid_igad_gps_pvalue.tsv",
-        "results/pid_rheum-fev_gps_pvalue.tsv",
-        "results/pid_auto-dis_gps_pvalue.tsv",
-        "results/pid_inf-bre_gps_pvalue.tsv",
-        "results/pid_rhin_gps_pvalue.tsv",
-        "results/pid_cardiomyo_gps_pvalue.tsv",
-        "results/pid_inf-cer-ute_gps_pvalue.tsv",
-        "results/pid_rosacea_gps_pvalue.tsv",
-        "results/pid_coeliac_gps_pvalue.tsv",
-        "results/pid_inf-gyn_gps_pvalue.tsv",
-        "results/pid_sarc_gps_pvalue.tsv",
-        "results/pid_copd_gps_pvalue.tsv",
-        "results/pid_inf-ute_gps_pvalue.tsv",
-        "results/pid_sjogren_gps_pvalue.tsv",
-        "results/pid_crohns-med_gps_pvalue.tsv",
-        "results/pid_jia_gps_pvalue.tsv",
-        "results/pid_sle_gps_pvalue.tsv",
-        "results/pid_crohns_gps_pvalue.tsv",
-        "results/pid_lada_gps_pvalue.tsv",
-        "results/pid_spondylo_gps_pvalue.tsv",
-        "results/pid_derm-ecz_gps_pvalue.tsv",
-        "results/pid_licp_gps_pvalue.tsv",
-        "results/pid_still_gps_pvalue.tsv",
-        "results/pid_desq_gps_pvalue.tsv",
-        "results/pid_licsa_gps_pvalue.tsv",
-        "results/pid_sulf-all_gps_pvalue.tsv",
-        "results/pid_divert_gps_pvalue.tsv",
-        "results/pid_misc-blood_gps_pvalue.tsv",
-        "results/pid_sys-scl_gps_pvalue.tsv",
-        "results/pid_drug-all_gps_pvalue.tsv",
-        "results/pid_misc-immune_gps_pvalue.tsv",
-        "results/pid_t1d_gps_pvalue.tsv",
-        "results/pid_dyschr-vit_gps_pvalue.tsv",
-        "results/pid_ms_gps_pvalue.tsv",
-        "results/pid_t2d_gps_pvalue.tsv",
-        "results/pid_endocard_gps_pvalue.tsv",
-        "results/pid_myal_gps_pvalue.tsv",
-        "results/pid_thy_gps_pvalue.tsv",
-        "results/pid_endomet_gps_pvalue.tsv",
-        "results/pid_myas_gps_pvalue.tsv",
-        "results/pid_uc_gps_pvalue.tsv",
-        "results/pid_ent-col_gps_pvalue.tsv",
-        "results/pid_pad_gps_pvalue.tsv",
-        "results/pid_eos-eso_gps_pvalue.tsv",
-        "results/pid_paed-all_gps_pvalue.tsv"
+         [f"results/{x}/{x}_all_gps_value.tsv" for x in trait_pairs]+
+         [f"results/{x}/{x}_all_gps_value_naive.tsv" for x in trait_pairs]
 
-"""
-rule maf:
-     input:
-      "resources/1000g/euro/qc/{chr}_qc.bed",
-      "resources/1000g/euro/qc/{chr}_qc.bim",
-      "resources/1000g/euro/qc/{chr}_qc.fam"
-     output:
-      "resources/1000g/euro/qc/maf/{chr}.frq"
-     threads: 8
-     resources:
-        mem_mb=get_mem_mb
-     shell:
-      "plink --memory {resources.mem_mb} --threads {threads} --bfile resources/1000g/euro/qc/{wildcards.chr}_qc --freq --out resources/1000g/euro/qc/maf/{wildcards.chr}"
+rule gps_for_all_selected_imds_sans_mhc:
+    input:
+        [f"results/{x}/{x}_sans_mhc_gps_value.tsv" for x in trait_pairs]+
+        [f"results/{x}/{x}_sans_mhc_gps_value_naive.tsv" for x in trait_pairs]
 
-rule ld:
-     input:
-      "resources/1000g/euro/qc/{chr}_qc.bed",
-      "resources/1000g/euro/qc/{chr}_qc.bim",
-      "resources/1000g/euro/qc/{chr}_qc.fam"
-     output:
-      "resources/1000g/euro/qc/ld/{chr}.ld"
-     threads: 8
-     resources:
-        mem_mb=get_mem_mb
-     shell:
-      "plink --memory {resources.mem_mb} --threads {threads} --bfile resources/1000g/euro/qc/{wildcards.chr}_qc --r2 --ld-window-r2 0.2 --ld-window-kb 1000 --out resources/1000g/euro/qc/ld/{wildcards.chr}"
-
-rule prune_whole_set:
-     input:
-      "resources/1000g/euro/qc/{chr}_qc.bed",
-      "resources/1000g/euro/qc/{chr}_qc.bim",
-      "resources/1000g/euro/qc/{chr}_qc.fam"
-     output:
-      "resources/1000g/euro/qc/prune_whole/{chr}.prune.in",
-      "resources/1000g/euro/qc/prune_whole/{chr}.prune.out",
-     threads: 8
-     resources:
-        mem_mb=get_mem_mb
-     shell:
-      "plink --memory {resources.mem_mb} --threads {threads} --bfile resources/1000g/euro/qc/{wildcards.chr}_qc --indep-pairwise 1000kb 50 0.2 --out resources/1000g/euro/qc/prune_whole/{wildcards.chr}"
-
-rule all:
-     input:
-      ("resources/gwas/pid_{imd}/plink/pruned/chr%d.bed" % x for x in range(1,23)),
-      ("resources/gwas/pid_{imd}/plink/pruned/chr%d.bim" % x for x in range(1,23)),
-      ("resources/gwas/pid_{imd}/plink/pruned/chr%d.fam" % x for x in range(1,23))
-     output:
-      "resources/gwas/pid_{imd}/done.txt"
-     shell:
-      "touch {output}"
-
-rule prune_subset:
-     input:
-      "resources/gwas/pid_{imd}/plink/{chr}.bed",
-      "resources/gwas/pid_{imd}/plink/{chr}.bim",
-      "resources/gwas/pid_{imd}/plink/{chr}.fam",
-      range_file = "resources/gwas/pid_{imd}/prune/{chr}.prune.in"
-     output:
-      "resources/gwas/pid_{imd}/plink/pruned/{chr}.bed",
-      "resources/gwas/pid_{imd}/plink/pruned/{chr}.bim",
-      "resources/gwas/pid_{imd}/plink/pruned/{chr}.fam",
-     params:
-      bfile = "resources/gwas/pid_{imd}/plink/{chr}",
-      out = "resources/gwas/pid_{imd}/plink/pruned/{chr}"
-     threads: 8
-     resources:
-        mem_mb=get_mem_mb
-     shell:
-      "plink --memory {resources.mem_mb} --threads {threads} --bfile {params.bfile} --extract {input.range_file} --make-bed --out {params.out}"
-
-rule subset_ld:
-     input:
-      ("resources/1000g/euro/qc/ld/chr%d.ld" % x for x in range(1,23)),
-      "resources/1000g/euro/qc/ld/chrX.ld",
-      "resources/gwas/pid_{imd}/pid_{imd}.tsv.gz"
-     output:
-      ("resources/gwas/pid_{imd}/ld/chr%d.ld" % x for x in range(1,23)),
-      "resources/gwas/pid_{imd}/ld/chrX.ld"
-     shell:
-      "Rscript scripts/subset_ld_with_merged_gwas.R -i resources/gwas/pid_{wildcards.imd}  -ld resources/1000g/euro/qc/ld -o resources/gwas/pid_{wildcards.imd}/ld"
-
-rule prune_all:
-     input:
-      ("resources/1000g/euro/qc/prune_whole/chr%d.prune.in" % x for x in range(1,23)),
-      "resources/1000g/euro/qc/prune_whole/chrX.prune.in"
-
-rule ld_all:
-     input:
-      ("resources/1000g/euro/qc/ld/chr%d.ld" % x for x in range(1,23)),
-      "resources/1000g/euro/qc/ld/chrX.ld"
-"""
+rule gps_pvalues_for_all_selected_imds:
+    input:
+        [f"results/{x}/{x}_all_3000_draws_gps_pvalue.tsv" for x in trait_pairs]
