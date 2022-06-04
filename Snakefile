@@ -5,13 +5,13 @@ import os
 wildcard_constraints:
   chr = "chr[0-9X]{1,2}"
 
-max_time = datetime.timedelta(seconds=6*60*60)
+max_time = 240
 
 def get_mem_mb(wildcards, threads):
     return threads * 3420
 
 def get_permute_time(wildcards, threads):
-    return str(min(max_time, datetime.timedelta(seconds=300+3*((int(wildcards.draws)/300)*3600)/int(threads))))
+    return min(max_time, 300+3*((int(wildcards.draws)/300)*3600)/int(threads))
 
 trait_pairs = ["pid_acne",
 "pid_fibrom",
@@ -84,7 +84,14 @@ trait_pairs = ["pid_acne",
 "pid_ent-col",
 "pid_pad",
 "pid_eos-eso",
-"pid_paed-all"]
+"pid_paed-all",
+"pid_igg",
+"pid_iga",
+"pid_igm"]
+
+impermutable_trait_pairs = ['pid_t1d', 'pid_ra', 'pid_psc']
+
+permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_pairs]
 
 rule download_1000g_genotype_data:
      output:
@@ -165,9 +172,9 @@ rule join_gwas:
       B = "resources/gwas/{imd}.tsv.gz"
      output:
       AB = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pid_{imd}_{join}.tsv.gz"
-     threads: 2
+     threads: 4
      params:
-         mhc = lambda wildcards: '-sans_mhc' if wildcards.join == 'sans_mhc' else ''
+         mhc = lambda wildcards: '-sans_mhc' if wildcards.join == 'sans-mhc' else ''
      group: "gps"
      shell:
       "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} {params.mhc} -o {output.AB} -nt {threads}"
@@ -179,8 +186,8 @@ rule make_plink_ranges:
      output:
       ("resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids/chr%d.txt" % x for x in range(1,23))
      params:
-      input_dir = "resources/1000g/euro/qc",
-      output_dir = "resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids"
+        input_dir = "resources/1000g/euro/qc",
+        output_dir = "resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids"
      threads: 1
      resources:
         mem_mb=get_mem_mb
@@ -245,7 +252,7 @@ rule prune_gwas:
      threads: 1
      group: "gps"
      shell:
-      "Rscript scripts/prune_gwas.R -i {input.gwas_file}  -p {input.prune_file} -o {output} -nt {threads}"
+      "Rscript scripts/prune_gwas.R -i {input.gwas_file} -p {input.prune_file} -o {output} -nt {threads}"
 
 rule unzip_pruned_joined_gwas:
     input:
@@ -261,22 +268,40 @@ rule compute_gps_for_trait_pair:
          "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
      output:
       "results/pid_{imd}/pid_{imd}_{join}_gps_value.tsv"
+     log:
+      "results/pid_{imd}/pid_{imd}_{join}_gps_value.log"
+     params:
+         no_of_pert_iterations = 100,
+         epsilon_multiple = 2.0
      threads: 1
      group: "gps"
      shell:
-      "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p -f addEpsilon -l -o {output}"
+      "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p {params.no_of_pert_iterations} -e {params.epsilon_multiple} -l -o {output} -g {log}"
 
 rule compute_gps_for_trait_pair_with_naive_ecdf_algo:
     input:
         "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
     output:
         "results/pid_{imd}/pid_{imd}_{join}_gps_value_naive.tsv"
-    threads: 4
+    log:
+        "results/pid_{imd}/pid_{imd}_{join}_gps_value_naive.log"
+    params:
+        no_of_pert_iterations = 0
+    threads: 8
     resources:
-        time = 40
+        time = 60
     group: "gps"
     shell:
-        "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -o {output}"
+        "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p {params.no_of_pert_iterations} -o {output} -g {log}"
+
+rule get_missing_rows:
+    input:
+        gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv",
+        log_file = "results/pid_{imd}/pid_{imd}_{join}_gps_value_naive.log"
+    output:
+        "results/pid_{imd}/pid_{imd}_{join}_missing_rows.tsv"
+    script:
+        "scripts/get_missing_rows.R"
 
 rule permute_trait_pair:
     input:
@@ -287,6 +312,7 @@ rule permute_trait_pair:
     resources:
         mem_mb = get_mem_mb,
         time = get_permute_time
+    group: "gps"
     shell:
         "scripts/gps_cpp/build/apps/permuteTraitsCLI -i {input} -o {output} -a P.A -b P.B -c {threads} -n {wildcards.draws}"
 
@@ -296,36 +322,52 @@ rule fit_gev_and_compute_gps_pvalue_for_trait_pair:
       perm_file = "results/permutations/{draws}_draws/pid_{imd}_{join}.tsv"
     output:
       "results/pid_{imd}/pid_{imd}_{join}_{draws}_draws_gps_pvalue.tsv"
+    group: "gps"
     shell:
       "Rscript scripts/fit_gev_and_compute_gps_pvalue.R -g {input.gps_file} -p {input.perm_file} -a pid -b {wildcards.imd} -o {output}"
 
-rule collate_gps_pvalue_data:
+rule fit_gev_and_compute_gps_pvalue_for_impermutable_trait_pair:
     input:
-        [y for y in [f"results/{x}/{x}_all_3000_draws_gps_pvalue.tsv" for x in trait_pairs] if os.path.exists(y)]
+        gps_file = "results/pid_{imd}/pid_{imd}_{join}_gps_value_naive.tsv",
+        collated_file = "results/{join}_{draws}_draws_permutable_gps_pvalues.tsv"
     output:
-        "results/all_3000_draws_gps_pvalues.tsv"
+        all_pvalues_file = "results/pid_{imd}/pid_{imd}_{join}_{draws}_draws_gps_imputed_pvalues.tsv",
+        median_pvalue_file = "results/pid_{imd}/pid_{imd}_{join}_{draws}_draws_gps_pvalue_median_imputed.tsv"
+    params:
+        trait_name = lambda wildcards: wildcards.imd
+    group: "gps"
+    script:
+        "scripts/fit_gev_and_compute_gps_pvalue_for_imperm.R"
+
+rule collate_permutable_gps_pvalue_data:
+    input:
+        [f"results/{x}/{x}_{{join}}_3000_draws_gps_pvalue.tsv" for x in permutable_trait_pairs]
+    output:
+        "results/{join}_3000_draws_permutable_gps_pvalues.tsv"
     run:
         with open(output[0], 'w') as outfile:
             outfile.write("trait_A\ttrait_B\tgps\tn\tloc\tloc.sd\tscale\tscale.sd\tshape\tshape.sd\tpval\n")
             for x in input:
                 with open(x, 'r') as infile:
-                    print(x)
                     trait_B = re.match('results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_all_3000_draws_gps_pvalue.tsv', x).groups()[0]
                     line = infile.readline()
                     line = infile.readline()
 
                 outfile.write(f"pid\t{trait_B}\t{line}")
 
-rule gps_for_all_selected_imds:
-     input:
-         [f"results/{x}/{x}_all_gps_value.tsv" for x in trait_pairs]+
-         [f"results/{x}/{x}_all_gps_value_naive.tsv" for x in trait_pairs]
-
-rule gps_for_all_selected_imds_sans_mhc:
+rule collate_gps_pvalue_data:
     input:
-        [f"results/{x}/{x}_sans_mhc_gps_value.tsv" for x in trait_pairs]+
-        [f"results/{x}/{x}_sans_mhc_gps_value_naive.tsv" for x in trait_pairs]
+        [f"results/{x}/{x}_{{join}}_{{draws}}_draws_gps_pvalue.tsv" for x in permutable_trait_pairs]+
+        [f"results/{x}/{x}_{{join}}_{{draws}}_draws_gps_pvalue_median_imputed.tsv" for x in impermutable_trait_pairs]
+    output:
+        "results/{join}_{draws}_draws_gps_pvalues.tsv"
+    run:
+        with open(output[0], 'w') as outfile:
+            outfile.write("trait_A\ttrait_B\tgps\tn\tloc\tloc.sd\tscale\tscale.sd\tshape\tshape.sd\tpval\n")
+            for x in input:
+                with open(x, 'r') as infile:
+                    trait_B = re.match('results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_all_3000_draws_gps_pvalue.tsv', x).groups()[0]
+                    line = infile.readline()
+                    line = infile.readline()
 
-rule gps_pvalues_for_all_selected_imds:
-    input:
-        [f"results/{x}/{x}_all_3000_draws_gps_pvalue.tsv" for x in trait_pairs]
+                    outfile.write(f"pid\t{trait_B}\t{line}")

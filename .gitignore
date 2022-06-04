@@ -1,15 +1,12 @@
 .snakemake
 1000g
-
 benchmarks
 *.out
 machine.file.*
 .Rhistory
-gwas
-plink.log
 logs
 submit_with_scheduling.sh
 *.png
 *.tsv
-*.R
 thaventhiran_imds
+extra_scripts
