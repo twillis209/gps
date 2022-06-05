@@ -87,9 +87,12 @@ trait_pairs = ["pid_acne",
 "pid_paed-all",
 "pid_igg",
 "pid_iga",
-"pid_igm"]
+"pid_igm",
+"pid_t1d-cooper",
+"pid_uc-delange",
+"pid_cd-delange"]
 
-impermutable_trait_pairs = ['pid_t1d', 'pid_ra', 'pid_psc']
+impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_t1d-cooper', 'pid_uc-delange', 'pid_cd-delange']
 
 permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_pairs]
 
@@ -177,7 +180,7 @@ rule join_gwas:
          mhc = lambda wildcards: '-sans_mhc' if wildcards.join == 'sans-mhc' else ''
      group: "gps"
      shell:
-      "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} {params.mhc} -o {output.AB} -nt {threads}"
+      "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} {params.mhc} -o {output.AB} -recalculate_p -nt {threads}"
 
 rule make_plink_ranges:
      input:
@@ -263,6 +266,18 @@ rule unzip_pruned_joined_gwas:
     shell:
         "gunzip -c {input} >{output}"
 
+rule test_perturbation_parameters:
+    input:
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
+    output:
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/perturbation/pid_{imd}_{join}_{epsilon}_{no_of_perts}.tsv"
+    params:
+        epsilon = lambda wildcards: float(wildcards.epsilon),
+        no_of_perts = lambda wildcards: int(wildcards.no_of_perts)
+    group: "gps"
+    shell:
+        "scripts/gps_cpp/build/apps/permuteProblem -i {input} -a P.A -b P.B -e {params.epsilon} -p {params.no_of_perts} &>{output}"
+
 rule compute_gps_for_trait_pair:
      input:
          "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
@@ -271,8 +286,8 @@ rule compute_gps_for_trait_pair:
      log:
       "results/pid_{imd}/pid_{imd}_{join}_gps_value.log"
      params:
-         no_of_pert_iterations = 100,
-         epsilon_multiple = 2.0
+         no_of_pert_iterations = lambda wildcards: 300 if wildcards.imd == 'psc' else 100,
+         epsilon_multiple = lambda wildcards: 10.0 if wildcards.imd == 'psc' else 2.0
      threads: 1
      group: "gps"
      shell:
@@ -289,7 +304,7 @@ rule compute_gps_for_trait_pair_with_naive_ecdf_algo:
         no_of_pert_iterations = 0
     threads: 8
     resources:
-        time = 60
+        time = 120
     group: "gps"
     shell:
         "scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p {params.no_of_pert_iterations} -o {output} -g {log}"
@@ -339,6 +354,21 @@ rule fit_gev_and_compute_gps_pvalue_for_impermutable_trait_pair:
     script:
         "scripts/fit_gev_and_compute_gps_pvalue_for_imperm.R"
 
+rule collate_naive_gps_value_data:
+    input:
+        [f"results/{x}/{x}_{{join}}_gps_value_naive.tsv" for x in trait_pairs]
+    output:
+        "results/{join}_naive_gps_values.tsv"
+    run:
+        with open(output[0], 'w') as outfile:
+            outfile.write("trait_A\ttrait_B\tgps\n")
+            for x in input:
+                with open(x, 'r') as infile:
+                    line = infile.readline()
+                    line = infile.readline()
+
+                    outfile.write(f"{line}")
+
 rule collate_permutable_gps_pvalue_data:
     input:
         [f"results/{x}/{x}_{{join}}_3000_draws_gps_pvalue.tsv" for x in permutable_trait_pairs]
@@ -363,11 +393,52 @@ rule collate_gps_pvalue_data:
         "results/{join}_{draws}_draws_gps_pvalues.tsv"
     run:
         with open(output[0], 'w') as outfile:
-            outfile.write("trait_A\ttrait_B\tgps\tn\tloc\tloc.sd\tscale\tscale.sd\tshape\tshape.sd\tpval\n")
+            outfile.write("trait_A\ttrait_B\tgps\tn\tloc\tloc.sd\tscale\tscale.sd\tshape\tshape.sd\tpval\tpermutable\n")
             for x in input:
                 with open(x, 'r') as infile:
                     trait_B = re.match('results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_all_3000_draws_gps_pvalue.tsv', x).groups()[0]
                     line = infile.readline()
                     line = infile.readline()
 
-                    outfile.write(f"pid\t{trait_B}\t{line}")
+                    permutable = x in permutable_trait_pairs
+
+                    outfile.write(f"pid\t{trait_B}\t{line}\t{permutable}")
+
+rule run_pairwise_cfdr:
+    input:
+        gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pid_{imd}_{join}.tsv.gz",
+        pruned_gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv.gz"
+    output:
+        results_file = "results/cfdr/pid_{imd}/pid_{imd}_{join}/pid_{imd}.tsv.gz"
+    threads: 8
+    resources:
+        time = 90
+    params:
+        chrom_col = 'CHR38',
+        bp_col = 'BP38',
+        ref_col = 'REF',
+        alt_col = 'ALT',
+        prin_col = 'P.A',
+        aux_col = 'P.B',
+        p_threshold = 1e-2,
+        v_col = 'v.B'
+    script:
+         "scripts/cfdr.R"
+
+rule draw_pairwise_cfdr_v_manhattan_plot:
+    input:
+        results_file = "results/cfdr/pid_{imd}/pid_{imd}_{join}/pid_{imd}.tsv.gz"
+    output:
+        "results/cfdr/pid_{imd}/pid_{imd}_{join}/pid_{imd}_manhattan.png"
+    params:
+        chrom_col = 'CHR38',
+        bp_col = 'BP38',
+        prin_col = 'P.A',
+        aux_col = 'P.B',
+        v_col = 'v.B',
+        prin_label = 'PID',
+        aux_label = lambda wildcards: wildcards.imd
+
+    threads: 4
+    script:
+        "scripts/plot_back_to_back_manhattan.R"

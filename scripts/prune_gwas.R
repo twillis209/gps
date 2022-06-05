@@ -33,4 +33,7 @@ gwas_dat <- gwas_dat[alt_ref %in% prune_dat$V1 | ref_alt %in% prune_dat$V1]
 
 gwas_dat[, c('ref_alt', 'alt_ref') := NULL]
 
+gwas_dat[, P.A := format(P.A, digits = 20)]
+gwas_dat[, P.B := format(P.B, digits = 20)]
+
 fwrite(gwas_dat, file = args$output_file, sep = '\t', col.names = T, row.names = F, quote = F)
