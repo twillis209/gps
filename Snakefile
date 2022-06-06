@@ -89,10 +89,9 @@ trait_pairs = ["pid_acne",
 "pid_iga",
 "pid_igm",
 "pid_t1d-cooper",
-"pid_uc-delange",
-"pid_cd-delange"]
+"pid_uc-delange"]
 
-impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_t1d-cooper', 'pid_uc-delange', 'pid_cd-delange']
+impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_t1d-cooper', 'pid_uc-delange']
 
 permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_pairs]
 
@@ -371,15 +370,15 @@ rule collate_naive_gps_value_data:
 
 rule collate_permutable_gps_pvalue_data:
     input:
-        [f"results/{x}/{x}_{{join}}_3000_draws_gps_pvalue.tsv" for x in permutable_trait_pairs]
+        [f"results/{x}/{x}_{{join}}_{{draws}}_draws_gps_pvalue.tsv" for x in permutable_trait_pairs]
     output:
-        "results/{join}_3000_draws_permutable_gps_pvalues.tsv"
+        "results/{join}_{draws}_draws_permutable_gps_pvalues.tsv"
     run:
         with open(output[0], 'w') as outfile:
             outfile.write("trait_A\ttrait_B\tgps\tn\tloc\tloc.sd\tscale\tscale.sd\tshape\tshape.sd\tpval\n")
             for x in input:
                 with open(x, 'r') as infile:
-                    trait_B = re.match('results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_all_3000_draws_gps_pvalue.tsv', x).groups()[0]
+                    trait_B = re.match(f'results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_{wildcards.join}_{wildcards.draws}_draws_gps_pvalue.tsv', x).groups()[0]
                     line = infile.readline()
                     line = infile.readline()
 
@@ -396,13 +395,17 @@ rule collate_gps_pvalue_data:
             outfile.write("trait_A\ttrait_B\tgps\tn\tloc\tloc.sd\tscale\tscale.sd\tshape\tshape.sd\tpval\tpermutable\n")
             for x in input:
                 with open(x, 'r') as infile:
-                    trait_B = re.match('results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_all_3000_draws_gps_pvalue.tsv', x).groups()[0]
+                    trait_B = re.match(f'results/pid_([A-Za-z0-9-_]+)/pid_[A-Za-z0-9-_]+_{wildcards.join}_{wildcards.draws}_draws.+', x).groups()[0]
                     line = infile.readline()
-                    line = infile.readline()
+                    line = infile.readline().strip('\n')
 
-                    permutable = x in permutable_trait_pairs
+                    permutable = f"pid_{trait_B}" in permutable_trait_pairs
 
-                    outfile.write(f"pid\t{trait_B}\t{line}\t{permutable}")
+                    # TODO fix omission of trait names in script which generates permutable pvalue output file
+                    if permutable:
+                        outfile.write(f"pid\t{trait_B}\t{line}\t{permutable}\n")
+                    else:
+                        outfile.write(f"{line}\t{permutable}\n")
 
 rule run_pairwise_cfdr:
     input:
@@ -438,7 +441,52 @@ rule draw_pairwise_cfdr_v_manhattan_plot:
         v_col = 'v.B',
         prin_label = 'PID',
         aux_label = lambda wildcards: wildcards.imd
-
     threads: 4
     script:
         "scripts/plot_back_to_back_manhattan.R"
+
+rule run_cfdr_for_top_scoring_traits:
+    input:
+        [f'results/cfdr/pid_{imd}/pid_{imd}_all/pid_{imd}_manhattan.png' for imd in ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'aster', 'pbc', 'ra', 't1d-cooper', 'uc', 'igm']]
+
+rule perturb_pvalues:
+    input:
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv"
+    output:
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_perturbed_pid_{imd}_{join}.tsv"
+    params:
+        no_of_pert_iterations = lambda wildcards: 300 if wildcards.imd == 'psc' else 100,
+        epsilon_multiple = lambda wildcards: 10.0 if wildcards.imd == 'psc' else 2.0,
+        trait_b = lambda wildcards: wildcards.imd
+    threads: 1
+    group: "gps"
+    shell:
+        "scripts/gps_cpp/build/apps/perturbPvalues -i {input} -a P.A -b P.B -c pid -d {params.trait_b} -e {params.epsilon_multiple} -p {params.no_of_pert_iterations} &>{output}"
+
+rule compute_hoeffdings_for_trait_pair:
+    input:
+        "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_perturbed_pid_{imd}_{join}.tsv"
+    output:
+        "results/pid_{imd}/pid_{imd}_{join}_hoeffdings.tsv"
+    params:
+        trait_A_col = 'pid',
+        trait_B_col = lambda wildcards: wildcards.imd
+    threads: 2
+    group: "gps"
+    script:
+        "scripts/compute_hoeffdings.R"
+
+rule collate_hoeffdings_results:
+    input:
+        [f"results/{x}/{x}_{{join}}_hoeffdings.tsv" for x in trait_pairs]
+    output:
+        "results/{join}_hoeffdings.tsv"
+    run:
+        with open(output[0], 'w') as outfile:
+            outfile.write("trait_A\ttrait_B\tn\tDn\tscaled\tpval\n")
+            for x in input:
+                with open(x, 'r') as infile:
+                    line = infile.readline()
+                    line = infile.readline()
+
+                    outfile.write(line)

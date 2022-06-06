@@ -18,6 +18,10 @@ for(i in 1:nrow(coll_dat)) {
   coll_dat[i, pval := pgev(gps, loc = coll_dat[i, loc], scale = coll_dat[i, scale], shape = coll_dat[i, shape], lower.tail = F)]
 }
 
+coll_dat[, gps := gps]
+
+coll_dat <- coll_dat[, .(trait_A, trait_B, gps, n, loc, loc.sd, scale, scale.sd, shape, shape.sd, pval)]
+
 fwrite(coll_dat, sep = '\t', file = all_pvalues_file)
 
 coll_dat <- coll_dat[order(pval, decreasing = F)][ceiling(nrow(coll_dat)/2)]

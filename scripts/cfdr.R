@@ -26,7 +26,7 @@ gwas_dat <- gwas_dat[!is.na(prin_col) & !is.na(aux_col), env = list(prin_col = p
 gwas_dat[prin_col < 1e-300, prin_col := 1e-300, env = list(prin_col = prin_col)]
 gwas_dat[aux_col < 1e-300, aux_col := 1e-300, env = list(aux_col = aux_col)]
 
-pruned_gwas_dat <- fread(gwas_file, sep = '\t', header = T, select = c(chrom_col, bp_col, ref_col, alt_col))
+pruned_gwas_dat <- fread(pruned_gwas_file, sep = '\t', header = T, select = c(chrom_col, bp_col, ref_col, alt_col))
 pruned_gwas_dat[, prune_in := T]
 
 gwas_dat <- merge(gwas_dat, pruned_gwas_dat, all.x = T, by = c(chrom_col, bp_col, ref_col, alt_col))
