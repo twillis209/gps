@@ -3,8 +3,8 @@
 #SBATCH -A MRC-BSU-SL2-CPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --time=8:00:00
+#SBATCH --cpus-per-task=6
+#SBATCH --time=12:00:00
 #SBATCH --mail-type=FAIL
 #SBATCH -p cclake,cclake-himem,icelake,icelake-himem,skylake,skylake-himem
 #SBATCH -o %j.out
@@ -28,7 +28,7 @@ workdir="$SLURM_SUBMIT_DIR"
 
 #! Are you using OpenMP (NB this is unrelated to OpenMPI)? If so increase this
 #! safe value to no more than 32:
-export OMP_NUM_THREADS=16
+export OMP_NUM_THREADS=6
 
 #! Number of MPI tasks to be started by the application per node and in total (do not change):
 np=$[${numnodes}*${mpi_tasks_per_node}]
@@ -71,4 +71,4 @@ source  /home/tw395/.bash_profile
 
 conda activate gps_paper_pipeline
 
-python3 -m snakemake --cores 16 --keep-going --default-resources time=5 mem_mb=3420 --scheduler greedy "${@}"
+python3 -m snakemake --cores 6 --keep-going --default-resources time=5 mem_mb=3420 --scheduler greedy "${@}"

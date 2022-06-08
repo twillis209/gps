@@ -95,6 +95,8 @@ impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_t1d-cooper', 'pid_uc-delan
 
 permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_pairs]
 
+#include: 'sumher.smk'
+
 rule download_1000g_genotype_data:
      output:
       "resources/1000g/{chr}.vcf.gz"
@@ -168,28 +170,36 @@ rule qc:
      shell:
       "plink --memory {resources.mem_mb} --threads {threads} --bfile {params.bfile} --geno 0.1 --mind 0.1 --maf 0.005 --hwe 1e-50 --make-bed --silent --out {params.out}"
 
-rule join_gwas:
-     input:
-      A = "resources/gwas/pid.tsv.gz",
-      B = "resources/gwas/{imd}.tsv.gz"
-     output:
-      AB = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pid_{imd}_{join}.tsv.gz"
-     threads: 4
-     params:
-         mhc = lambda wildcards: '-sans_mhc' if wildcards.join == 'sans-mhc' else ''
-     group: "gps"
-     shell:
-      "Rscript scripts/join_gwas_stats.R -a {input.A} -b {input.B} {params.mhc} -o {output.AB} -recalculate_p -nt {threads}"
+rule join_multiple_gwas:
+    input:
+        principal_trait_gwas_file = "resources/gwas/{prin_trait}.tsv.gz",
+        auxiliary_trait_gwas_files = lambda wildcards: [f"resources/gwas/{x}.tsv.gz" for x in wildcards.aux_traits.split('+')],
+        pruned_auxiliary_trait_gwas_files = lambda wildcards: [f"resources/gwas/{wildcards.prin_trait}_{x}/{wildcards.prin_trait}_{x}_{wildcards.join}/pruned_{wildcards.prin_trait}_{x}_{wildcards.join}.tsv.gz" for x in wildcards.aux_traits.split('+')]
+    output:
+        "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{join}/{prin_trait}_{aux_traits}_with_prune_{join}.tsv.gz"
+    threads: 4
+    params:
+        mhc = lambda wildcards: '-sans_mhc' if wildcards.join == 'sans-mhc' else '',
+        bp_col = 'BP38',
+        chr_col = 'CHR38',
+        ref_col = 'REF',
+        alt_col = 'ALT',
+        p_col = 'P'
+    resources:
+        time = 10
+    group: "gps"
+    script:
+        "scripts/join_multiple_gwas_stats.R"
 
 rule make_plink_ranges:
      input:
       ("resources/1000g/euro/qc/chr%d_qc.bim" % x for x in range(1,23)),
-      gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pid_{imd}_{join}.tsv.gz"
+      gwas_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{join}/{trait_A}_{trait_B}_{join}.tsv.gz"
      output:
-      ("resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids/chr%d.txt" % x for x in range(1,23))
+      ("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{join}/matching_ids/chr%d.txt" % x for x in range(1,23))
      params:
         input_dir = "resources/1000g/euro/qc",
-        output_dir = "resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids"
+        output_dir = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{join}/matching_ids"
      threads: 1
      resources:
         mem_mb=get_mem_mb
@@ -204,9 +214,9 @@ rule subset_reference:
       "resources/1000g/euro/qc/{chr}_qc.fam",
       range_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/matching_ids/{chr}.txt"
      output:
-      temp("resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.bed"),
-      temp("resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.bim"),
-      temp("resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}.fam")
+      temp("resources/gwas/pid_{imd,[^\+]+}/pid_{imd}_{join}/plink/{chr}.bed"),
+      temp("resources/gwas/pid_{imd,[^\+]+}/pid_{imd}_{join}/plink/{chr}.bim"),
+      temp("resources/gwas/pid_{imd,[^\+]+}/pid_{imd}_{join}/plink/{chr}.fam")
      params:
       bfile = "resources/1000g/euro/qc/{chr}_qc",
       out = "resources/gwas/pid_{imd}/pid_{imd}_{join}/plink/{chr}"
@@ -413,7 +423,9 @@ rule run_pairwise_cfdr:
         pruned_gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{join}/pruned_pid_{imd}_{join}.tsv.gz"
     output:
         results_file = "results/cfdr/pid_{imd}/pid_{imd}_{join}/pid_{imd}.tsv.gz"
-    threads: 8
+    benchmark:
+        "benchmarks/run_pairwise_cfdr/pid_{imd}_{join}_benchmark.txt"
+    threads: 6
     resources:
         time = 90
     params:
@@ -426,7 +438,36 @@ rule run_pairwise_cfdr:
         p_threshold = 1e-2,
         v_col = 'v.B'
     script:
-         "scripts/cfdr.R"
+         "scripts/pairwise_cfdr.R"
+
+rule run_iterative_cfdr:
+    input:
+        "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{join}/{prin_trait}_{aux_traits}_with_prune_{join}.tsv.gz"
+    output:
+        "results/cfdr/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{join}/{prin_trait}_{aux_traits}.tsv.gz"
+    benchmark:
+        "benchmarks/run_iterative_cfdr/{prin_trait}_{aux_traits}_{join}_benchmark.txt"
+    threads: 6
+             # TODO write function to handle times
+    resources:
+        time = 600
+    params:
+        chr_col = 'CHR38',
+        bp_col = 'BP38',
+        ref_col = 'REF',
+        alt_col = 'ALT',
+        prin_col = 'P',
+        aux_cols = lambda wildcards: [f'P.{i+1}' for i,x in enumerate(wildcards.aux_traits.split('+'))],
+        prune_cols = lambda wildcards: [f'prune_in.{i+1}' for i,x in enumerate(wildcards.aux_traits.split('+'))],
+        v_cols = lambda wildcards: [f'v.{i+1}' for i,x in enumerate(wildcards.aux_traits.split('+'))],
+        p_threshold = 1e-2
+    script:
+        "scripts/iterative_cfdr.R"
+
+rule run_iterative_cfdr_for_top_traits_per_gps:
+    input:
+        "results/cfdr/pid_uc-delange+sys-scl+lada+t1d-cooper+psc+jia+addi+ms+igad/pid_uc-delange+sys-scl+lada+t1d-cooper+psc+jia+addi+ms+igad_sans-mhc/pid_uc-delange+sys-scl+lada+t1d-cooper+psc+jia+addi+ms+igad.tsv.gz"
+
 
 rule draw_pairwise_cfdr_v_manhattan_plot:
     input:
@@ -447,7 +488,7 @@ rule draw_pairwise_cfdr_v_manhattan_plot:
 
 rule run_cfdr_for_top_scoring_traits:
     input:
-        [f'results/cfdr/pid_{imd}/pid_{imd}_all/pid_{imd}_manhattan.png' for imd in ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'aster', 'pbc', 'ra', 't1d-cooper', 'uc', 'igm']]
+        [f'results/cfdr/pid_{imd}/pid_{imd}_sans-mhc/pid_{imd}_manhattan.png' for imd in ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'aster', 'pbc', 'ra', 't1d-cooper', 'uc', 'igm']]
 
 rule perturb_pvalues:
     input:

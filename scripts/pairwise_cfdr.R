@@ -14,7 +14,6 @@ aux_col <- snakemake@params[['aux_col']]
 p_threshold <- snakemake@params[['p_threshold']]
 v_col <- snakemake@params[['v_col']]
 output_file <- snakemake@output[['results_file']]
-vl_file <- snakemake@output[['vl_file']]
 
 setDTthreads(no_of_threads)
 
@@ -22,11 +21,16 @@ gwas_dat <- fread(gwas_file, sep = '\t', header = T)
 
 gwas_dat <- gwas_dat[!is.na(prin_col) & !is.na(aux_col), env = list(prin_col = prin_col, aux_col = aux_col)]
 
+gwas_dat[, chrom_col := as.character(chrom_col), env = list(chrom_col = chrom_col)]
+
 # Transforming p-values of 0 to Z-scores yields Inf values
 gwas_dat[prin_col < 1e-300, prin_col := 1e-300, env = list(prin_col = prin_col)]
 gwas_dat[aux_col < 1e-300, aux_col := 1e-300, env = list(aux_col = aux_col)]
 
 pruned_gwas_dat <- fread(pruned_gwas_file, sep = '\t', header = T, select = c(chrom_col, bp_col, ref_col, alt_col))
+
+pruned_gwas_dat[, chrom_col := as.character(chrom_col), env = list(chrom_col = chrom_col)]
+
 pruned_gwas_dat[, prune_in := T]
 
 gwas_dat <- merge(gwas_dat, pruned_gwas_dat, all.x = T, by = c(chrom_col, bp_col, ref_col, alt_col))
@@ -49,10 +53,6 @@ folds_with_indices <- folds[sapply(ind, function(x) length(x) > 0)]
 
 # Compute L-regions
 v <- mcmapply(function(x,y) vl(gwas_dat[[prin_col]], gwas_dat[[aux_col]], indices = x, mode = 2, fold = y), non_empty_indices, folds_with_indices, mc.cores = no_of_threads, SIMPLIFY = F)
-
-#if(vl_file) {
-#  save(v, vl_file)
-#}
 
 # il calls are fast enough not to justify their being parallelised
 # Integrate over L-regions to obtain v-values
