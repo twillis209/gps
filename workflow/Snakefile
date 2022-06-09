@@ -1,0 +1,102 @@
+import datetime
+import re
+import os
+
+wildcard_constraints:
+  chr = "chr[0-9X]{1,2}"
+
+max_time = 240
+
+def get_mem_mb(wildcards, threads):
+    return threads * 3420
+
+def get_permute_time(wildcards, threads):
+    return min(max_time, 300+3*((int(wildcards.draws)/300)*3600)/int(threads))
+
+trait_pairs = ["pid_acne",
+"pid_fibrom",
+"pid_pbc",
+"pid_addi",
+"pid_ges-dia",
+"pid_agran",
+"pid_glom",
+"pid_polymyal",
+"pid_all-conj",
+"pid_gout",
+"pid_polyp",
+"pid_all-urt",
+"pid_hyperpara",
+"pid_pros",
+"pid_ank-spond",
+"pid_hyperthy",
+"pid_psc",
+"pid_arthr-nos",
+"pid_hypothy",
+"pid_pso-arthr",
+"pid_arthr",
+"pid_ibd",
+"pid_pso",
+"pid_aster",
+"pid_ibs",
+"pid_ra",
+"pid_asthma",
+"pid_igad",
+"pid_rheum-fev",
+"pid_auto-dis",
+"pid_inf-bre",
+"pid_rhin",
+"pid_cardiomyo",
+"pid_inf-cer-ute",
+"pid_rosacea",
+"pid_coeliac",
+"pid_inf-gyn",
+"pid_sarc",
+"pid_copd",
+"pid_inf-ute",
+"pid_sjogren",
+"pid_crohns-med",
+"pid_jia",
+"pid_sle",
+"pid_crohns",
+"pid_lada",
+"pid_spondylo",
+"pid_derm-ecz",
+"pid_licp",
+"pid_still",
+"pid_desq",
+"pid_licsa",
+"pid_sulf-all",
+"pid_divert",
+"pid_misc-blood",
+"pid_sys-scl",
+"pid_drug-all",
+"pid_misc-immune",
+"pid_t1d",
+"pid_dyschr-vit",
+"pid_ms",
+"pid_t2d",
+"pid_endocard",
+"pid_myal",
+"pid_thy",
+"pid_endomet",
+"pid_myas",
+"pid_uc",
+"pid_ent-col",
+"pid_pad",
+"pid_eos-eso",
+"pid_paed-all",
+"pid_igg",
+"pid_iga",
+"pid_igm",
+"pid_t1d-cooper",
+"pid_uc-delange"]
+
+impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_t1d-cooper', 'pid_uc-delange']
+
+permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_pairs]
+
+include: 'rules/1000g_reference.smk'
+include: 'rules/gwas.smk'
+include: 'rules/gps.smk'
+include: 'rules/cfdr.smk'
+include: 'rules/sumher.smk'

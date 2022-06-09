@@ -1,0 +1,52 @@
+library(data.table)
+
+setDTthreads(snakemake@threads)
+
+gwas_file <- snakemake@input[['gwas_file']]
+metadata_file <- snakemake@input[['metadata_file']]
+trait_A <- snakemake@params[['trait_A']]
+trait_B <- snakemake@params[['trait_B']]
+chr_col <- snakemake@params[['chr_col']]
+bp_col <- snakemake@params[['bp_col']]
+ref_col <- snakemake@params[['ref_col']]
+alt_col <- snakemake@params[['alt_col']]
+beta_a_col <- snakemake@params[['beta_a_col']]
+beta_b_col <- snakemake@params[['beta_b_col']]
+se_a_col <- snakemake@params[['se_a_col']]
+se_b_col <- snakemake@params[['se_b_col']]
+gwas_file_A <- snakemake@output[['gwas_file_A']]
+gwas_file_B <- snakemake@output[['gwas_file_B']]
+
+gwas_dat <- fread(gwas_file, sep = '\t', header = T, select = c(chr_col, bp_col, ref_col, alt_col, beta_a_col, beta_b_col, se_a_col, se_b_col))
+
+meta_dat <- fread(metadata_file, sep = '\t', header = T)
+trait_A_N <- meta_dat[abbrv == trait_A, N]
+trait_B_N <- meta_dat[abbrv == trait_B, N]
+
+# The SumHer documentation states that A1 is the 'test allele' and A2 is the 'other allele', so I take this to mean A1 is the minor allele and A2 the major allele
+
+setnames(gwas_dat, c(chr_col, bp_col, alt_col, ref_col), c('chr', 'bp', 'A1', 'A2'))
+
+gwas_dat <- gwas_dat[!(chr %in% c('X', 'Y', 'MT'))]
+
+gwas_dat[, `:=` (len.A1 = nchar(A1), len.A2 = nchar(A2))]
+
+gwas_dat <- gwas_dat[len.A1 == 1 & len.A2 == 1]
+
+# 'Predictor' has format chr:bp:A2:A1 in my simgwas file, not sure it is correct, though
+gwas_dat[, Predictor := paste(chr, bp, A2, A1, sep = ':')]
+
+gwas_dat <- unique(gwas_dat, by = 'Predictor')
+
+
+gwas_dat[, Z := beta_a_col/se_a_col, env = list(beta_a_col = beta_a_col, se_a_col = se_a_col)]
+gwas_dat[, n := trait_A_N]
+gwas_dat <- na.omit(gwas_dat)
+
+fwrite(gwas_dat[, .(Predictor, A1, A2, n, Z)], sep = '\t', file =  gwas_file_A)
+
+gwas_dat[, Z := beta_b_col/se_b_col, env = list(beta_b_col = beta_b_col, se_b_col = se_b_col)]
+gwas_dat[, n := trait_B_N]
+gwas_dat <- na.omit(gwas_dat)
+
+fwrite(gwas_dat[, .(Predictor, A1, A2, n, Z)], sep = '\t', file =  gwas_file_B)

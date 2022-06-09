@@ -3,8 +3,8 @@
 #SBATCH -A MRC-BSU-SL2-CPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=6
-#SBATCH --time=12:00:00
+#SBATCH --cpus-per-task=16
+#SBATCH --time=4:00:00
 #SBATCH --mail-type=FAIL
 #SBATCH -p cclake,cclake-himem,icelake,icelake-himem,skylake,skylake-himem
 #SBATCH -o %j.out

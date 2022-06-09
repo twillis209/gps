@@ -1,1 +1,0 @@
-/home/tw395/rds/hpc-work/pidProject/rScripts/join/join_gwas_stats.R

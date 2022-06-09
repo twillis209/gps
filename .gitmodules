@@ -2,3 +2,4 @@
 	path = scripts/gps_cpp
 	url = git@github.com:twillis209/gps_cpp.git
 	branch = gps_paper_code
+	ignore = dirty

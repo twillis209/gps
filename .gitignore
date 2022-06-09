@@ -10,3 +10,6 @@ submit_with_scheduling.sh
 *.tsv
 thaventhiran_imds
 extra_scripts
+*.RData
+resources
+results
