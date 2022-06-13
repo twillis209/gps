@@ -1,4 +1,5 @@
 from scipy.stats import chi2
+import re
 
 rule deduplicate_variants:
     input:
@@ -102,7 +103,7 @@ rule join_ldak_thin_taggings:
         wg_tagging_file = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging"),
         chrom_taggings_file = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/taggings.txt")
     log:
-        log_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging.og"
+        log_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging.log"
     params:
         output_stem = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome"
     group: "sumher"
@@ -115,7 +116,6 @@ rule join_ldak_thin_taggings:
         $ldakRoot/ldak --join-tagging {params.output_stem} --taglist {output.chrom_taggings_file} > {log.log_file}
         """
 
-# NB: Currently assuming in the script that ncases_A == ncases_B and ncontrols_A == ncontrols_B
 rule process_sum_stats:
     input:
         gwas_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz",
@@ -170,8 +170,37 @@ top_imd_pairs = list(chain(*[[f"{top_imds[i]}_{top_imds[j]}" for j in range(i+1,
 
 rule estimate_rg_with_ldak_thin_for_top_imds:
     input:
-        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors" for trait_pair in top_imd_pairs]
+        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors" for trait_pair in top_imd_pairs],
+        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_sans-mhc.cors" for trait_pair in top_imd_pairs]
 
+rule compile_overlap_files_for_top_imds:
+    input:
+        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")],
+        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_sans-mhc.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")]
+    output:
+        "results/ldak/ldak-thin/top_imds.overlap"
+    run:
+        with open(output[0], 'w') as outfile:
+            outfile.write("trait_A\ttrait_B\tsnp_set\ttag_predictors\tassoc_predictors\toverlap\n")
+            for x in input:
+                m = re.match("results/ldak/ldak-thin/([\w-]+)_([\w-]+)/[\w-]+_[\w-]+_([\w-]+).overlap", x)
+                trait_A = m.groups()[0]
+                trait_B = m.groups()[1]
+                snp_set = m.groups()[2]
+                with open(x, 'r') as infile:
+                    line = infile.readline()
+
+                    tag_predictors = line.strip().split(' ')[1]
+
+                    line = infile.readline()
+
+                    assoc_predictors = line.strip().split(' ')[1]
+
+                    line = infile.readline()
+
+                    overlap = line.strip().split(' ')[1]
+
+                    outfile.write(f"{trait_A}\t{trait_B}\t{snp_set}\t{tag_predictors}\t{assoc_predictors}\t{overlap}\n")
 #
 #rule estimate_rg_with_ldak_thin_for_ukbb:
 #    input:

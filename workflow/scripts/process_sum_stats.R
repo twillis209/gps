@@ -40,12 +40,17 @@ gwas_dat <- unique(gwas_dat, by = 'Predictor')
 
 
 gwas_dat[, Z := beta_a_col/se_a_col, env = list(beta_a_col = beta_a_col, se_a_col = se_a_col)]
+# qnorm(1e-100) = -21.27345
+gwas_dat[Z > 21, Z := 21]
+gwas_dat[Z < -21, Z := -21]
 gwas_dat[, n := trait_A_N]
 gwas_dat <- na.omit(gwas_dat)
 
 fwrite(gwas_dat[, .(Predictor, A1, A2, n, Z)], sep = '\t', file =  gwas_file_A)
 
 gwas_dat[, Z := beta_b_col/se_b_col, env = list(beta_b_col = beta_b_col, se_b_col = se_b_col)]
+gwas_dat[Z > 21, Z := 21]
+gwas_dat[Z < -21, Z := -21]
 gwas_dat[, n := trait_B_N]
 gwas_dat <- na.omit(gwas_dat)
 

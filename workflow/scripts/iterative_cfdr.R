@@ -4,7 +4,7 @@ library(parallel)
 
 save.image('iterative_cfdr.RData')
 
-gwas_file <- snakemake@input[[1]]
+gwas_file <- snakemake@input[['gwas_file']]
 chr_col <- snakemake@params[['chr_col']]
 bp_col <- snakemake@params[['bp_col']]
 ref_col <- snakemake@params[['ref_col']]
@@ -17,6 +17,7 @@ v_cols <- c(prin_col, v_cols)
 no_of_threads <- snakemake@threads
 p_threshold <- snakemake@params[['p_threshold']]
 output_file <- snakemake@output[[1]]
+use_ldetect_blocks <- snakemake@params[['use_ldetect_blocks']]
 
 setDTthreads(no_of_threads)
 
@@ -33,20 +34,29 @@ gwas_dat <- unique(gwas_dat, by = c(chr_col, bp_col))
 # Transforming p-values of 0 to Z-scores yields Inf values
 gwas_dat[prin_p < 1e-300, (prin_col) := 1e-300, env = list(prin_p = prin_col)]
 
+# Organise points into folds
+if(use_ldetect_blocks) {
+} else {
+  folds <- lapply(sort(unique(as.integer(sub_dat[[chr_col]]))),
+                  function(x) sub_dat[chrom_col == x, which = T, env = list(chrom_col = chr_col)])
+}
+
 # v_cols is p and initial v_cols
 for(i in seq_along(aux_cols)) {
   gwas_dat[aux_p < 1e-300, (aux_cols[i]) := 1e-300, env = list(aux_p = aux_cols[i])]
 
-  # TODO subset columns
-  sub_dat <- gwas_dat[!is.na(aux_p), env = list(aux_p = aux_cols[i])]
+  if(i == 1) {
+    sub_cols <- c(chr_col, bp_col, ref_col, alt_col, prin_col, aux_cols[i], prune_cols[i])
+  } else {
+    sub_cols <- c(chr_col, bp_col, ref_col, alt_col, prin_col, v_cols[i], aux_cols[i], prune_cols[i])
+  }
+
+  sub_dat <- gwas_dat[!is.na(aux_p), ..sub_cols, env = list(aux_p = aux_cols[i])]
 
   # Estimate joint null distribution
   est_q0_pars <- fit.2g(P = sub_dat[!is.na(aux_p) & prune_in == T & prin_p > 0.5, aux_p, env = list(prune_in = prune_cols[i], prin_p = v_cols[i], aux_p = aux_cols[i])])$pars
 
-  # Organise points into chromosome folds
-  folds <- lapply(sort(unique(as.integer(sub_dat[[chr_col]]))),
-                    function(x) sub_dat[chrom_col == x, which = T, env = list(chrom_col = chr_col)])
-
+  # TODO could assign this in the sub_dat?
   # Not interested in any variants with a ur-principal p-value above the threshold
   candidate_indices <- sub_dat[prin_p <= p_threshold, which = T, env = list(prin_p = prin_col)]
 

@@ -11,6 +11,7 @@ bp_col <- snakemake@params[['bp_col']]
 ref_col <- snakemake@params[['ref_col']]
 alt_col <- snakemake@params[['alt_col']]
 p_col <- snakemake@params[['p_col']]
+mhc <- snakemake@params[['mhc']]
 output_file <- snakemake@output[[1]]
 
 setDTthreads(no_of_threads)
@@ -57,6 +58,10 @@ for(i in seq_along(auxiliary_trait_gwas_files)) {
   prin_dat <- merge(prin_dat, aux_dat, all.x = T, by = c(chr_col, bp_col, ref_col, alt_col))
 
   prin_dat <- na.omit(prin_dat, cols = c(chr_col, bp_col))
+}
+
+if(!mhc) {
+  prin_dat <- prin_dat[!(chr_col == 6 & bp_col %between% c(24e6, 45e6)), env = list(chr_col = chr_col, bp_col = bp_col)]
 }
 
 fwrite(prin_dat, file = output_file, sep = '\t')

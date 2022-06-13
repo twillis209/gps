@@ -29,7 +29,7 @@ rule join_multiple_gwas:
         temp("resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz")
     threads: 4
     params:
-        mhc = lambda wildcards: '-sans_mhc' if wildcards.snp_set == 'sans-mhc' else '',
+        mhc = lambda wildcards: False if wildcards.snp_set == 'sans-mhc' else True,
         bp_col = 'BP38',
         chr_col = 'CHR38',
         ref_col = 'REF',
@@ -40,6 +40,24 @@ rule join_multiple_gwas:
     group: "gps"
     script:
         "../scripts/join_multiple_gwas_stats.R"
+
+rule add_ld_block_column_to_merged_gwas:
+    input:
+        gwas_file = "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz",
+        block_file = "resources/ldetect/blocks.tsv"
+    output:
+        "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_and_blocks_{snp_set}.tsv.gz"
+    params:
+        bp_col = 'BP38',
+        chr_col = 'CHR38',
+        ref_col = 'REF',
+        alt_col = 'ALT'
+    threads: 4
+    resources:
+        time = 180
+    group: "gps"
+    script:
+        "../scripts/add_ld_block_column_to_merged_gwas.R"
 
 rule make_plink_ranges:
      input:

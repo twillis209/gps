@@ -3,7 +3,7 @@
 #SBATCH -A MRC-BSU-SL2-CPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=30
 #SBATCH --time=4:00:00
 #SBATCH --mail-type=FAIL
 #SBATCH -p cclake,cclake-himem,icelake,icelake-himem,skylake,skylake-himem
@@ -71,4 +71,4 @@ source  /home/tw395/.bash_profile
 
 conda activate gps_paper_pipeline
 
-python3 -m snakemake --cores 6 --keep-going --default-resources time=5 mem_mb=3420 --scheduler greedy "${@}"
+python3 -m snakemake --cores 30 --keep-going --default-resources time=5 mem_mb=3420 --scheduler greedy "${@}"
