@@ -3,3 +3,6 @@
 	url = git@github.com:twillis209/gps_cpp.git
 	branch = gps_paper_code
 	ignore = dirty
+[submodule "workflow/scripts/GWAS_tools"]
+	path = workflow/scripts/GWAS_tools
+	url = git@github.com:twillis209/GWAS_tools.git
