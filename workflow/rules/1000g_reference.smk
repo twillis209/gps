@@ -57,9 +57,9 @@ rule get_euro_samples:
 
 rule qc:
      input:
-        "resources/1000g/euro/{chr}_euro.bed",
-        "resources/1000g/euro/{chr}_euro.bim",
-        "resources/1000g/euro/{chr}_euro.fam"
+        ancient("resources/1000g/euro/{chr}_euro.bed"),
+        ancient("resources/1000g/euro/{chr}_euro.bim"),
+        ancient("resources/1000g/euro/{chr}_euro.fam")
      output:
         "resources/1000g/euro/qc/{chr}_qc.bed",
         "resources/1000g/euro/qc/{chr}_qc.bim",

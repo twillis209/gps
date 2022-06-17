@@ -58,10 +58,11 @@ rule permute_trait_pair:
     threads: 10
     resources:
         mem_mb = get_mem_mb,
-        time = get_permute_time
+        time = get_permute_time,
+        no_of_pert_iterations = 100
     group: "gps"
     shell:
-        "workflow/scripts/gps_cpp/build/apps/permuteTraitsCLI -i {input} -o {output} -a P.A -b P.B -c {threads} -n {wildcards.draws}"
+        "workflow/scripts/gps_cpp/build/apps/permuteTraitsCLI -i {input} -o {output} -a P.A -b P.B -c {threads} -n {wildcards.draws} -p {params.no_of_pert_iterations}"
 
 rule fit_gev_and_compute_gps_pvalue_for_trait_pair:
     input:

@@ -1,9 +1,40 @@
+rule download_gwas:
+    output:
+        temp("resources/gwas/{trait}.tsv.gz")
+    params:
+        url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
+    shell:
+        """
+        wget -O {output} {params.url}
+        """
+
+        # TODO rewrite pipeline to handle temporary dir, work without cd etc.
+        # TODO pipeline is currently handling rm of a lot of stuff
+        # TODO can only be run serially
+rule process_gwas:
+    input:
+        "resources/gwas/{trait}.tsv.gz"
+    output:
+        temp_input_cp = temp("workflow/scripts/GWAS_tools/01-Pipeline/{trait}.tsv.gz"),
+        processed_file = "results/processed_gwas/{trait}.tsv.gz",
+    params:
+        pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz"
+    shell:
+        """
+        # Need to remove the dash as this has special meaning in the pipeline
+        cp {input} {output.temp_input_cp}
+        cd workflow/scripts/GWAS_tools/01-Pipeline
+        ./pipeline_v5.3.2_beta.sh -f {wildcards.trait}.tsv.gz -b {wildcards.trait}
+        cd ../../../..
+        mv {params.pipeline_output_file} {output.processed_file}
+        """
+
 rule join_pair_gwas:
     input:
-        A = "resources/gwas/{trait_A}.tsv.gz",
-        B = "resources/gwas/{trait_B}.tsv.gz"
+        A = "results/processed_gwas/{trait_A}.tsv.gz",
+        B = "results/processed_gwas/{trait_B}.tsv.gz"
     output:
-        AB = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz")
+        AB = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz")
     threads: 4
     params:
         mhc = lambda wildcards: False if wildcards.snp_set == 'sans-mhc' else True,
@@ -22,11 +53,11 @@ rule join_pair_gwas:
 
 rule join_multiple_gwas:
     input:
-        principal_trait_gwas_file = "resources/gwas/{prin_trait}.tsv.gz",
-        auxiliary_trait_gwas_files = lambda wildcards: [f"resources/gwas/{x}.tsv.gz" for x in wildcards.aux_traits.split('+')],
-        pruned_auxiliary_trait_gwas_files = lambda wildcards: [f"resources/gwas/{wildcards.prin_trait}_{x}/{wildcards.prin_trait}_{x}_{wildcards.snp_set}/pruned_{wildcards.prin_trait}_{x}_{wildcards.snp_set}.tsv.gz" for x in wildcards.aux_traits.split('+')]
+        principal_trait_gwas_file = "results/processed_gwas/{prin_trait}.tsv.gz",
+        auxiliary_trait_gwas_files = lambda wildcards: [f"results/processed_gwas/{x}.tsv.gz" for x in wildcards.aux_traits.split('+')],
+        pruned_auxiliary_trait_gwas_files = lambda wildcards: [f"results/processed_gwas/{wildcards.prin_trait}_{x}/{wildcards.prin_trait}_{x}_{wildcards.snp_set}/pruned_{wildcards.prin_trait}_{x}_{wildcards.snp_set}.tsv.gz" for x in wildcards.aux_traits.split('+')]
     output:
-        temp("resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz")
+        temp("results/merged_gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz")
     threads: 4
     params:
         mhc = lambda wildcards: False if wildcards.snp_set == 'sans-mhc' else True,
@@ -43,10 +74,10 @@ rule join_multiple_gwas:
 
 rule add_ld_block_column_to_merged_gwas:
     input:
-        gwas_file = "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz",
+        gwas_file = "results/merged_gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz",
         block_file = "resources/ldetect/blocks.tsv"
     output:
-        "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_and_blocks_{snp_set}.tsv.gz"
+        "results/merged_gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_and_blocks_{snp_set}.tsv.gz"
     params:
         bp_col = 'BP38',
         chr_col = 'CHR38',
@@ -62,12 +93,12 @@ rule add_ld_block_column_to_merged_gwas:
 rule make_plink_ranges:
      input:
       ("resources/1000g/euro/qc/chr%d_qc.bim" % x for x in range(1,23)),
-      gwas_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz"
+      gwas_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz"
      output:
-      ("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/matching_ids/chr%d.txt" % x for x in range(1,23))
+      ("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/matching_ids/chr%d.txt" % x for x in range(1,23))
      params:
         input_dir = "resources/1000g/euro/qc",
-        output_dir = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/matching_ids"
+        output_dir = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/matching_ids"
      threads: 1
      resources:
         mem_mb=get_mem_mb
@@ -80,14 +111,14 @@ rule subset_reference:
       "resources/1000g/euro/qc/{chr}_qc.bed",
       "resources/1000g/euro/qc/{chr}_qc.bim",
       "resources/1000g/euro/qc/{chr}_qc.fam",
-      range_file = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/matching_ids/{chr}.txt"
+      range_file = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/matching_ids/{chr}.txt"
      output:
-      temp("resources/gwas/pid_{imd,[^\+]+}/pid_{imd}_{snp_set}/plink/{chr}.bed"),
-      temp("resources/gwas/pid_{imd,[^\+]+}/pid_{imd}_{snp_set}/plink/{chr}.bim"),
-      temp("resources/gwas/pid_{imd,[^\+]+}/pid_{imd}_{snp_set}/plink/{chr}.fam")
+      temp("results/merged_gwas/pid_{imd,[^\+]+}/pid_{imd}_{snp_set}/plink/{chr}.bed"),
+      temp("results/merged_gwas/pid_{imd,[^\+]+}/pid_{imd}_{snp_set}/plink/{chr}.bim"),
+      temp("results/merged_gwas/pid_{imd,[^\+]+}/pid_{imd}_{snp_set}/plink/{chr}.fam")
      params:
       bfile = "resources/1000g/euro/qc/{chr}_qc",
-      out = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}"
+      out = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}"
      threads: 1
      resources:
         mem_mb=get_mem_mb
@@ -97,15 +128,15 @@ rule subset_reference:
 
 rule make_pruned_ranges:
      input:
-      "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}.bed",
-      "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}.bim",
-      "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}.fam"
+      "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}.bed",
+      "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}.bim",
+      "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}.fam"
      output:
-      "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/{chr}.prune.in",
-      "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/{chr}.prune.out"
+      "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/{chr}.prune.in",
+      "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/{chr}.prune.out"
      params:
-       bfile = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}",
-       prune_out = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/{chr}"
+       bfile = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/plink/{chr}",
+       prune_out = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/{chr}"
      threads: 1
      resources:
         mem_mb=get_mem_mb
@@ -115,9 +146,9 @@ rule make_pruned_ranges:
 
 rule cat_pruned_ranges:
      input:
-      ("resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/chr%d.prune.in" % x for x in range(1,23))
+      ("results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/chr%d.prune.in" % x for x in range(1,23))
      output:
-      "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/all.prune.in"
+      "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/all.prune.in"
      threads: 1
      group: "gps"
      shell:
@@ -125,10 +156,10 @@ rule cat_pruned_ranges:
 
 rule prune_gwas:
      input:
-      prune_file = ancient("resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/all.prune.in"),
-      gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pid_{imd}_{snp_set}.tsv.gz"
+      prune_file = ancient("results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/prune/all.prune.in"),
+      gwas_file = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pid_{imd}_{snp_set}.tsv.gz"
      output:
-      "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv.gz"
+      "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv.gz"
      threads: 1
      group: "gps"
      shell:
@@ -136,9 +167,9 @@ rule prune_gwas:
 
 rule unzip_pruned_joined_gwas:
     input:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv.gz"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv.gz"
     output:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
     group: "gps"
     shell:
         "gunzip -c {input} >{output}"

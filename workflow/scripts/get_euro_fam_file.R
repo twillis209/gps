@@ -11,6 +11,8 @@ daf <- read.table(args$ped_file, header = T)
 euro_daf <- subset(daf, Superpopulation == 'EUR' & FatherID == 0 & MotherID == 0)
 
 # Get unrelated European samples
-euro_fam <- data.frame(euro_daf[c('SampleID', 'SampleID', 'FatherID', 'MotherID', 'Sex')], Phenotype = -9)
+euro_fam <- data.frame(euro_daf[c('SampleID', 'FatherID', 'MotherID', 'Sex')], Phenotype = -9)
+
+euro_fam <- cbind(0, euro_fam)
 
 write.table(euro_fam, file = args$output_file, sep = ' ', col.names = F, row.names = F, quote = F)
