@@ -1,7 +1,5 @@
 library(data.table)
 
-save.image('join_pair_gwas_stats.RData')
-
 gwas_file_a <- snakemake@input[['A']]
 gwas_file_b <- snakemake@input[['B']]
 chr_col <- snakemake@params[['chr_col']]

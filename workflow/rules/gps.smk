@@ -1,8 +1,8 @@
 rule test_perturbation_parameters:
     input:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
     output:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/perturbation/pid_{imd}_{snp_set}_{epsilon}_{no_of_perts}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/perturbation/pid_{imd}_{snp_set}_{epsilon}_{no_of_perts}.tsv"
     params:
         epsilon = lambda wildcards: float(wildcards.epsilon),
         no_of_perts = lambda wildcards: int(wildcards.no_of_perts)
@@ -12,14 +12,14 @@ rule test_perturbation_parameters:
 
 rule compute_gps_for_trait_pair:
      input:
-         "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
+         "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
      output:
       "results/pid_{imd}/pid_{imd}_{snp_set}_gps_value.tsv"
      log:
       "results/pid_{imd}/pid_{imd}_{snp_set}_gps_value.log"
      params:
-         no_of_pert_iterations = lambda wildcards: 300 if wildcards.imd == 'psc' else 100,
-         epsilon_multiple = lambda wildcards: 10.0 if wildcards.imd == 'psc' else 2.0
+         no_of_pert_iterations = 400,
+         epsilon_multiple = 100000.0
      threads: 1
      group: "gps"
      shell:
@@ -27,7 +27,7 @@ rule compute_gps_for_trait_pair:
 
 rule compute_gps_for_trait_pair_with_naive_ecdf_algo:
     input:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
     output:
         "results/pid_{imd}/pid_{imd}_{snp_set}_gps_value_naive.tsv"
     log:
@@ -43,7 +43,7 @@ rule compute_gps_for_trait_pair_with_naive_ecdf_algo:
 
 rule get_missing_rows:
     input:
-        gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv",
+        gwas_file = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv",
         log_file = "results/pid_{imd}/pid_{imd}_{snp_set}_gps_value_naive.log"
     output:
         "results/pid_{imd}/pid_{imd}_{snp_set}_missing_rows.tsv"
@@ -52,7 +52,7 @@ rule get_missing_rows:
 
 rule permute_trait_pair:
     input:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
     output:
         "results/permutations/{draws}_draws/pid_{imd}_{snp_set}.tsv"
     threads: 10
@@ -143,12 +143,12 @@ rule collate_gps_pvalue_data:
 
 rule perturb_pvalues:
     input:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
     output:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_perturbed_pid_{imd}_{snp_set}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_perturbed_pid_{imd}_{snp_set}.tsv"
     params:
-        no_of_pert_iterations = lambda wildcards: 300 if wildcards.imd == 'psc' else 100,
-        epsilon_multiple = lambda wildcards: 10.0 if wildcards.imd == 'psc' else 2.0,
+        no_of_pert_iterations = lambda wildcards: 400,
+        epsilon_multiple = lambda wildcards: 10.0,
         trait_b = lambda wildcards: wildcards.imd
     threads: 1
     group: "gps"
@@ -157,7 +157,7 @@ rule perturb_pvalues:
 
 rule compute_hoeffdings_for_trait_pair:
     input:
-        "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_perturbed_pid_{imd}_{snp_set}.tsv"
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_perturbed_pid_{imd}_{snp_set}.tsv"
     output:
         "results/pid_{imd}/pid_{imd}_{snp_set}_hoeffdings.tsv"
     params:

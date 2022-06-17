@@ -73,6 +73,41 @@ impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_uc']
 
 permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_pairs]
 
+ukbb_traits = ["asthma",
+               "rhin",
+               "desq",
+               "divert",
+               "gout",
+               "arthr-nos",
+               "dyschr-vit",
+                "myal"
+                ]
+
+finngen_traits = ["hyperthy",
+                  "agran",
+                  "sarc",
+                  "hyperpara",
+                  "hypothy",
+                  "glom",
+                  "all-conj",
+                  "polyp",
+                  "ent-col"
+                  "acne",
+                  "derm-ecz",
+                  "licp",
+                  "licsa",
+                  "rosacea",
+                  "all-urt",
+                  "ank-spond",
+                  "polymyal",
+                  "sjogren",
+                  "endomet",
+                  "pso-arthr",
+                  "spondylo",
+                  "still",
+                  "thy",
+                  "pid-finngen"]
+
 include: 'rules/1000g_reference.smk'
 include: 'rules/gwas.smk'
 include: 'rules/gps.smk'

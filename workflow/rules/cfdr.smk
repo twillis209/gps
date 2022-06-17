@@ -1,7 +1,7 @@
 rule run_pairwise_cfdr:
     input:
-        gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pid_{imd}_{snp_set}.tsv.gz",
-        pruned_gwas_file = "resources/gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv.gz"
+        gwas_file = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pid_{imd}_{snp_set}.tsv.gz",
+        pruned_gwas_file = "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv.gz"
     output:
         results_file = "results/cfdr/pid_{imd}/pid_{imd}_{snp_set}/pid_{imd}.tsv.gz"
     benchmark:
@@ -23,7 +23,7 @@ rule run_pairwise_cfdr:
 
 rule run_iterative_cfdr:
     input:
-        gwas_file = "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz",
+        gwas_file = "results/merged_gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz",
         ldetect_blocks_file = "resources/ldetect/blocks.txt"
     output:
         "results/cfdr/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}.tsv.gz"
@@ -48,7 +48,7 @@ rule run_iterative_cfdr:
 
 rule run_iterative_cfdr_using_ldetect_blocks:
     input:
-        "resources/gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz"
+        "results/merged_gwas/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_with_prune_{snp_set}.tsv.gz"
     output:
         "results/cfdr/{prin_trait}_{aux_traits}/{prin_trait}_{aux_traits}_{snp_set}/{prin_trait}_{aux_traits}_ldetect.tsv.gz"
     benchmark:
@@ -76,7 +76,7 @@ rule run_iterative_cfdr_for_top_traits_per_gps:
 
 rule draw_manhattan_plot:
     input:
-        "resources/gwas/{trait}.tsv.gz"
+        "results/processed_gwas/{trait}.tsv.gz"
     output:
         "results/plots/gwas/{trait}_manhattan.png"
     params:

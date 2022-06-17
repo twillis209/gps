@@ -44,14 +44,14 @@ rule subset_snp_variants:
         "resources/1000g/euro/qc/nodup/snps_only/1000g/{chr}.bed",
         "resources/1000g/euro/qc/nodup/snps_only/1000g/{chr}.bim",
         "resources/1000g/euro/qc/nodup/snps_only/1000g/{chr}.fam",
-        range_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/matching_ids/{chr}.txt"
+        range_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/matching_ids/{chr}.txt"
     output:
-        temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bed"),
-        temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bim"),
-        temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.fam"),
+        temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bed"),
+        temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bim"),
+        temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.fam"),
     params:
         input_stem = "resources/1000g/euro/qc/nodup/snps_only/1000g/{chr}",
-        output_stem = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}"
+        output_stem = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}"
     threads: 1
     resources:
         mem_mb=get_mem_mb
@@ -61,17 +61,17 @@ rule subset_snp_variants:
 
 rule thin_predictors:
     input:
-        "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bed",
-        "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bim",
-        "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.fam",
+        "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bed",
+        "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bim",
+        "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.fam",
     output:
-        thin_file = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/thin.in"),
-        weights_file = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/weights.thin")
+        thin_file = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/thin.in"),
+        weights_file = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/weights.thin")
     log:
-        log_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/thin.log"
+        log_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/thin.log"
     params:
-        input_stem = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}",
-        output_stem = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/thin"
+        input_stem = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}",
+        output_stem = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/thin"
     group: "sumher"
     shell:
         """
@@ -81,31 +81,31 @@ rule thin_predictors:
 
 rule calculate_ldak_thin_taggings_for_chromosome:
     input:
-        "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bed",
-        "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bim",
-        "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.fam",
-        weights_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/weights.thin"
+        "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bed",
+        "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.bim",
+        "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}.fam",
+        weights_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/weights.thin"
     output:
-        tagging_file = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/{chr}.tagging"),
+        tagging_file = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/{chr}.tagging"),
     log:
-        log_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/{chr}.tagging.log"
+        log_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/{chr}.tagging.log"
     params:
-        input_stem = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}",
-        output_stem = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/{chr}"
+        input_stem = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}",
+        output_stem = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/{chr}/{chr}"
     group: "sumher"
     shell:
         "$ldakRoot/ldak --calc-tagging {params.output_stem} --bfile {params.input_stem} --weights {input.weights_file} --chr {wildcards.chr} --window-kb 1000 --power -.25 > {log.log_file}"
 
 rule join_ldak_thin_taggings:
     input:
-        [f"resources/gwas/{{trait_A}}_{{trait_B}}/{{trait_A}}_{{trait_B}}_{{snp_set}}/ldak/chr{x}/chr{x}.tagging" for x in range(1, 23)]
+        [f"results/merged_gwas/{{trait_A}}_{{trait_B}}/{{trait_A}}_{{trait_B}}_{{snp_set}}/ldak/chr{x}/chr{x}.tagging" for x in range(1, 23)]
     output:
-        wg_tagging_file = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging"),
-        chrom_taggings_file = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/taggings.txt")
+        wg_tagging_file = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging"),
+        chrom_taggings_file = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/taggings.txt")
     log:
-        log_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging.log"
+        log_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging.log"
     params:
-        output_stem = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome"
+        output_stem = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome"
     group: "sumher"
     shell:
         """
@@ -118,11 +118,11 @@ rule join_ldak_thin_taggings:
 
 rule process_sum_stats:
     input:
-        gwas_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz",
+        gwas_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz",
         metadata_file = "resources/gwas/metadata/metadata.tsv"
     output:
-        gwas_file_A = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}.assoc"),
-        gwas_file_B = temp("resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_B}.assoc")
+        gwas_file_A = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}.assoc"),
+        gwas_file_B = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_B}.assoc")
     params:
         trait_A = lambda wildcards: wildcards.trait_A,
         trait_B = lambda wildcards: wildcards.trait_B,
@@ -143,9 +143,9 @@ rule process_sum_stats:
 
 rule estimate_rg_with_ldak_thin:
     input:
-        wg_tagging_file = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging",
-        gwas_file_A = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}.assoc",
-        gwas_file_B = "resources/gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_B}.assoc"
+        wg_tagging_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/ldak/whole_genome.tagging",
+        gwas_file_A = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}.assoc",
+        gwas_file_B = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_B}.assoc"
     output:
         progress_file = "results/ldak/ldak-thin/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}.progress",
         cors_file = "results/ldak/ldak-thin/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}.cors",

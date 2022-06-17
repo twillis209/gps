@@ -13,26 +13,50 @@ rule download_gwas:
         # TODO can only be run serially
 rule process_gwas:
     input:
-        "resources/gwas/{trait}.tsv.gz"
+        ancient("resources/gwas/{trait}.tsv.gz")
     output:
         temp_input_cp = temp("workflow/scripts/GWAS_tools/01-Pipeline/{trait}.tsv.gz"),
-        processed_file = "results/processed_gwas/{trait}.tsv.gz",
+        processed_file = "results/processed_gwas/{trait,[^\_]+}.tsv.gz"
     params:
-        pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz"
+        gwas_tools_dir = "workflow/scripts/GWAS_tools/01-Pipeline",
+        pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz",
+        is_ukbb = lambda w: "true" if w.trait in ukbb_traits else "false",
+        temp_input_cp_decompressed_name = "{trait}.tsv",
+        temp_input_cp_name = "{trait}.tsv.gz"
     shell:
         """
         # Need to remove the dash as this has special meaning in the pipeline
+
         cp {input} {output.temp_input_cp}
-        cd workflow/scripts/GWAS_tools/01-Pipeline
+        cd {params.gwas_tools_dir}
+
+        if [ "{params.is_ukbb}" = "true" ]; then
+            zcat {params.temp_input_cp_name} | tr ':' '\t' >{params.temp_input_cp_decompressed_name};
+            sed -i 's/variant/chrom\tbp\tref\talt/' {params.temp_input_cp_decompressed_name};
+            gzip -f {params.temp_input_cp_decompressed_name}
+        fi
+
         ./pipeline_v5.3.2_beta.sh -f {wildcards.trait}.tsv.gz -b {wildcards.trait}
         cd ../../../..
         mv {params.pipeline_output_file} {output.processed_file}
         """
 
+rule recalculate_p_values:
+    input:
+        ancient("results/processed_gwas/{trait}.tsv.gz")
+    output:
+        "results/processed_gwas/{trait,[^\_]+}_recalculated_p.tsv.gz"
+    params:
+        beta_col = 'BETA',
+        se_col = 'SE',
+        p_col = 'P'
+    threads: 4
+    script: "../scripts/recalculate_p_values.R"
+
 rule join_pair_gwas:
     input:
-        A = "results/processed_gwas/{trait_A}.tsv.gz",
-        B = "results/processed_gwas/{trait_B}.tsv.gz"
+        A = "results/processed_gwas/{trait_A}_recalculated_p.tsv.gz",
+        B = "results/processed_gwas/{trait_B}_recalculated_p.tsv.gz"
     output:
         AB = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz")
     threads: 4
