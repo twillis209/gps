@@ -34,9 +34,9 @@ rule compute_gps_for_trait_pair_with_naive_ecdf_algo:
         "results/pid_{imd}/pid_{imd}_{snp_set}_gps_value_naive.log"
     params:
         no_of_pert_iterations = 0
-    threads: 8
+    threads: 12
     resources:
-        time = 120
+        time = 30
     group: "gps"
     shell:
         "workflow/scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p {params.no_of_pert_iterations} -o {output} -g {log}"

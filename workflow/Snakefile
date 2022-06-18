@@ -57,7 +57,6 @@ trait_pairs = ["pid_acne",
 "pid_t1d",
 "pid_dyschr-vit",
 "pid_ms",
-"pid_myal",
 "pid_thy",
 "pid_endomet",
 "pid_myas",
@@ -75,14 +74,11 @@ permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_
 
 ukbb_traits = ["asthma",
                "rhin",
-               "desq",
-               "divert",
-               "gout",
-               "arthr-nos",
-               "dyschr-vit",
-                "myal"
-                ]
-
+               "gout"]
+# These are in the 'PanUKBB collection' and have broken URLs
+#"dyschr-vit"
+#"desq",
+#"divert",
 finngen_traits = ["hyperthy",
                   "agran",
                   "sarc",
@@ -91,7 +87,7 @@ finngen_traits = ["hyperthy",
                   "glom",
                   "all-conj",
                   "polyp",
-                  "ent-col"
+                  "ent-col",
                   "acne",
                   "derm-ecz",
                   "licp",
@@ -113,3 +109,4 @@ include: 'rules/gwas.smk'
 include: 'rules/gps.smk'
 include: 'rules/cfdr.smk'
 include: 'rules/sumher.smk'
+include: 'rules/export.smk'

@@ -119,7 +119,7 @@ rule join_ldak_thin_taggings:
 rule process_sum_stats:
     input:
         gwas_file = "results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}_{trait_B}_{snp_set}.tsv.gz",
-        metadata_file = "resources/gwas/metadata/metadata.tsv"
+        metadata_file = "resources/gwas/metadata/metadata_all_fields.tsv"
     output:
         gwas_file_A = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_A}.assoc"),
         gwas_file_B = temp("results/merged_gwas/{trait_A}_{trait_B}/{trait_A}_{trait_B}_{snp_set}/{trait_B}.assoc")
@@ -164,26 +164,17 @@ rule estimate_rg_with_ldak_thin:
         $ldakRoot/ldak --sum-cors {params.output_stem} --tagfile {input.wg_tagging_file} --summary {input.gwas_file_A} --summary2 {input.gwas_file_B} --allow-ambiguous YES --check-sums NO --cutoff 0.01 > {log.log_file}
         """
 
-top_imds = ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'aster', 'pbc', 'ra', 't1d-cooper', 'uc', 'igm']
-
-top_imd_pairs = list(chain(*[[f"{top_imds[i]}_{top_imds[j]}" for j in range(i+1,len(top_imds))] for i in range(len(top_imds))]))
-
-rule estimate_rg_with_ldak_thin_for_top_imds:
-    input:
-        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors" for trait_pair in top_imd_pairs],
-        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_sans-mhc.cors" for trait_pair in top_imd_pairs]
-
-rule compile_overlap_files_for_top_imds:
-    input:
-        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")],
-        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_sans-mhc.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")]
-    output:
-        "results/ldak/ldak-thin/top_imds.overlap"
-    shell:
-        """
-        echo -e "trait_A trait_B snp_set tag_predictors assoc_predictors overlap" >{output}
-        for x in {input}; do echo -n -e "$(basename $x) " | tr '_' ' '; cut -d' ' -f2 $x | tr '\n' ' '; echo; done | sed 's/\.overlap//' >>{output}
-        """
+#rule compile_overlap_files_for_top_imds:
+#    input:
+#        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")],
+#        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_sans-mhc.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")]
+#    output:
+#        "results/ldak/ldak-thin/top_imds.overlap"
+#    shell:
+#        """
+#        echo -e "trait_A trait_B snp_set tag_predictors assoc_predictors overlap" >{output}
+#        for x in {input}; do echo -n -e "$(basename $x) " | tr '_' ' '; cut -d' ' -f2 $x | tr '\n' ' '; echo; done | sed 's/\.overlap//' >>{output}
+#        """
 #
 #rule estimate_rg_with_ldak_thin_for_ukbb:
 #    input:

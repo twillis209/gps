@@ -3,6 +3,9 @@ rule download_gwas:
         temp("resources/gwas/{trait}.tsv.gz")
     params:
         url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
+    resources:
+        time = 5
+    group: "gwas"
     shell:
         """
         wget -O {output} {params.url}
@@ -16,13 +19,16 @@ rule process_gwas:
         ancient("resources/gwas/{trait}.tsv.gz")
     output:
         temp_input_cp = temp("workflow/scripts/GWAS_tools/01-Pipeline/{trait}.tsv.gz"),
-        processed_file = "results/processed_gwas/{trait,[^\_]+}.tsv.gz"
+        processed_file = temp("results/processed_gwas/{trait,[^\_]+}.tsv.gz")
     params:
         gwas_tools_dir = "workflow/scripts/GWAS_tools/01-Pipeline",
         pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz",
         is_ukbb = lambda w: "true" if w.trait in ukbb_traits else "false",
         temp_input_cp_decompressed_name = "{trait}.tsv",
         temp_input_cp_name = "{trait}.tsv.gz"
+    resources:
+        time = 15
+    group: "gwas"
     shell:
         """
         # Need to remove the dash as this has special meaning in the pipeline
@@ -51,6 +57,9 @@ rule recalculate_p_values:
         se_col = 'SE',
         p_col = 'P'
     threads: 4
+    resources:
+        time = 5
+    group: "gwas"
     script: "../scripts/recalculate_p_values.R"
 
 rule join_pair_gwas:
