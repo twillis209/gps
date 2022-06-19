@@ -12,7 +12,7 @@ rule run_sumher_on_finngen_traits:
     input:
         [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors" for trait_pair in finngen_pairs]
 
-top_imds = ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'aster', 'pbc', 'ra', 'uc', 'igm']
+top_imds = ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'aster', 'pbc', 'ra', 'igm']
 
 top_imd_pairs = list(chain(*[[f"{top_imds[i]}_{top_imds[j]}" for j in range(i+1,len(top_imds))] for i in range(len(top_imds))]))
 
