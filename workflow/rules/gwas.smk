@@ -1,15 +1,15 @@
-#rule download_gwas:
-#    output:
-#        temp("resources/gwas/{trait}.tsv.gz")
-#    params:
-#        url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
-#    resources:
-#        time = 5
-#    group: "gwas"
-#    shell:
-#        """
-#        wget -O {output} {params.url}
-#        """
+rule download_gwas:
+    output:
+        temp("resources/gwas/{trait}.tsv.gz")
+    params:
+        url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
+    resources:
+        time = 5
+    group: "gwas"
+    shell:
+        """
+        wget -O {output} {params.url}
+        """
 
 # TODO rewrite pipeline to handle temporary dir, work without cd etc.
 # TODO pipeline is currently handling rm of a lot of stuff

@@ -163,11 +163,8 @@ rule estimate_rg_with_ldak_thin:
         """
         $ldakRoot/ldak --sum-cors {params.output_stem} --tagfile {input.wg_tagging_file} --summary {input.gwas_file_A} --summary2 {input.gwas_file_B} --allow-ambiguous YES --check-sums NO --cutoff 0.01 > {log.log_file}
         """
-
 #rule compile_overlap_files_for_top_imds:
 #    input:
-#        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")],
-#        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_sans-mhc.overlap" for trait_pair in top_imd_pairs if os.path.exists(f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.overlap")]
 #    output:
 #        "results/ldak/ldak-thin/top_imds.overlap"
 #    shell:
@@ -175,55 +172,3 @@ rule estimate_rg_with_ldak_thin:
 #        echo -e "trait_A trait_B snp_set tag_predictors assoc_predictors overlap" >{output}
 #        for x in {input}; do echo -n -e "$(basename $x) " | tr '_' ' '; cut -d' ' -f2 $x | tr '\n' ' '; echo; done | sed 's/\.overlap//' >>{output}
 #        """
-#
-#rule estimate_rg_with_ldak_thin_for_ukbb:
-#    input:
-#        wg_tagging_file = "results/ldak/ldak-thin/ukbb/whole_genome.tagging",
-#        sum_stats_file_A = "resources/ukbb_sum_stats/{trait_A}.assoc",
-#        sum_stats_file_B = "resources/ukbb_sum_stats/{trait_B}.assoc"
-#    output:
-#        progress_file = "results/ldak/ldak-thin/ukbb/rg/{trait_A}-{trait_B}.progress"
-##        cors_file = "results/ldak/ldak-thin/ukbb/rg/{trait_A}-{trait_B}.cors",
-##        cors_full_file = "results/ldak/ldak-thin/ukbb/rg/{trait_A}-{trait_B}.cors.full",
-##        labels_file = "results/ldak/ldak-thin/ukbb/rg/{trait_A}-{trait_B}.cors.labels",
-##        overlap_file = "results/ldak/ldak-thin/ukbb/rg/{trait_A}-{trait_B}.cors.overlap",
-#    log:
-#        log_file = "results/ldak/ldak-thin/ukbb/rg/{trait_A}-{trait_B}.log"
-#    params:
-#        output_stem = "results/ldak/ldak-thin/ukbb/rg/{trait_A}-{trait_B}"
-#    resources:
-#        time = 5
-#    group: "ukbb_sumher"
-#    shell:
-#        """
-#        $ldakRoot/ldak --sum-cors {params.output_stem} --tagfile {input.wg_tagging_file} --summary {input.sum_stats_file_A} --summary2 {input.sum_stats_file_B} --allow-ambiguous YES --check-sums NO --cutoff 0.01 > {log.log_file}
-#        """
-#
-#rule ukbb_sumher:
-#    input:
-#       sumher_files = [f"results/ldak/ldak-thin/ukbb/rg/{trait_pair}.cors.full" for trait_pair in ukbb_trait_pairs],
-#       metadata_file = "resources/ukbb_sum_stats/trait_metadata.tsv"
-#    output:
-#        "results/ldak/ldak-thin/ukbb/rg/compiled_ukbb_sumher_results.tsv"
-#    run:
-#        meta_daf = pd.read_csv(input.metadata_file, sep = '\t')
-#        with open(output[0], 'w') as outfile:
-#            outfile.write("trait_A_code\ttrait_B_code\ttrait_A_name\ttrait_B_name\th2.A\th2.A.se\th2.B\th2.B.se\tgcov\tgcov.se\trg\trg.se\trg.z\trg.p\n")
-#            for x in input.sumher_files:
-#                head, tail = os.path.split(x)
-#
-#                trait_A, trait_B = re.match("(\w+)-(\w+).cors.full", tail).groups()
-#
-#                trait_A_name = meta_daf.loc[meta_daf.code == trait_A, 'long_abbrv'].values[0]
-#                trait_B_name = meta_daf.loc[meta_daf.code == trait_B, 'long_abbrv'].values[0]
-#
-#                with open(x, 'r') as infile:
-#                    line = infile.readline()
-#                    line = infile.readline()
-#
-#                    # Category Trait1_Her SD Trait2_Her SD Both_Coher SD Correlation SD
-#                    _, h2_A, h2_A_se, h2_B, h2_B_se, cov, cov_se, rg, rg_se = line.split()
-#                    rg_z = float(rg)/float(rg_se)
-#
-#                    rg_p = chi2.sf(rg_z**2, df = 1, loc = 0, scale = 1)
-#                    outfile.write(f"{trait_A}\t{trait_B}\t{trait_A_name}\t{trait_B_name}\t{float(h2_A)}\t{float(h2_A_se)}\t{float(h2_B)}\t{float(h2_B_se)}\t{float(cov)}\t{float(cov_se)}\t{float(rg)}\t{float(rg_se)}\t{rg_z}\t{rg_p}\n")

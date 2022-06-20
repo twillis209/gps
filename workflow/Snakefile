@@ -60,7 +60,7 @@ trait_pairs = ["pid_acne",
 "pid_thy",
 "pid_endomet",
 "pid_myas",
-"pid_uc",
+"pid_uc-delange",
 "pid_ent-col",
 "pid_eos-eso",
 "pid_igg",
@@ -68,7 +68,7 @@ trait_pairs = ["pid_acne",
 "pid_igm",
 "pid_pid-finngen"]
 
-impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_uc']
+impermutable_trait_pairs = ['pid_ra', 'pid_psc', 'pid_uc-delange']
 
 permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_pairs]
 
@@ -103,6 +103,27 @@ finngen_traits = ["hyperthy",
                   "still",
                   "thy",
                   "pid-finngen"]
+
+misc_traits = ["pbc",
+               "addi",
+               "psc",
+               "ra",
+               "igad",
+               "rheum-fev",
+               "coeliac",
+               "jia",
+               "sle",
+               "crohns",
+               "lada",
+               "sys-scl",
+               "t1d",
+               "ms",
+               "myas",
+               "uc-delange",
+               "eos-eso",
+               "igg",
+               "iga",
+               "igm"]
 
 include: 'rules/1000g_reference.smk'
 include: 'rules/gwas.smk'
