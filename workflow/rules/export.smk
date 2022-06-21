@@ -24,6 +24,19 @@ rule run_gps_on_finngen_traits:
     input:
         [f"results/pid_{trait}/pid_{trait}_all_gps_value.tsv" for trait in finngen_traits]
 
+rule run_naive_gps_on_all_traits:
+    input:
+        [f"results/pid_{trait}/pid_{trait}_all_gps_value_naive.tsv" for trait in finngen_traits+ukbb_traits+misc_traits]
+    output:
+        "results/compiled_all_gps_value_naive.tsv"
+    shell:
+        """
+        echo -e "Trait_A\tTrait_B\tGPS" > {output}
+        for x in {input}; do
+            tail -n +2 $x >> {output}
+        done
+        """
+
 rule compile_top_imd_sumher_results:
     input:
        cors_files = [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors.full" for trait_pair in top_imd_pairs],

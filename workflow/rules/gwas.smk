@@ -1,15 +1,15 @@
-rule download_gwas:
-    output:
-        temp("resources/gwas/{trait}.tsv.gz")
-    params:
-        url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
-    resources:
-        time = 5
-    group: "gwas"
-    shell:
-        """
-        wget -O {output} {params.url}
-        """
+#rule download_gwas:
+#    output:
+#        temp("resources/gwas/{trait}.tsv.gz")
+#    params:
+#        url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
+#    resources:
+#        time = 5
+#    group: "gwas"
+#    shell:
+#        """
+#        wget -O {output} {params.url}
+#        """
 
 # TODO rewrite pipeline to handle temporary dir, work without cd etc.
 # TODO pipeline is currently handling rm of a lot of stuff
@@ -24,6 +24,7 @@ rule process_gwas:
         gwas_tools_dir = "workflow/scripts/GWAS_tools/01-Pipeline",
         pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz",
         is_ukbb = lambda w: "true" if w.trait in ukbb_traits else "false",
+        is_misc = lambda w: "true" if w.trait in misc_traits else "false",
         temp_input_cp_decompressed_name = "{trait}.tsv",
         temp_input_cp_name = "{trait}.tsv.gz"
     resources:
@@ -31,7 +32,12 @@ rule process_gwas:
     group: "gwas"
     shell:
         """
-        # Need to remove the dash as this has special meaning in the pipeline
+        # I believe all the misc. traits have already been processed
+        if [ "{params.is_misc}" = "true" ]; then
+            cp {input} {output.temp_input_cp}
+            cp {input} {output.processed_file}
+            exit;
+        fi
 
         cp {input} {output.temp_input_cp}
         cd {params.gwas_tools_dir}
@@ -61,6 +67,7 @@ rule recalculate_p_values:
         time = 5
     group: "gwas"
     script: "../scripts/recalculate_p_values.R"
+
 
 rule join_pair_gwas:
     input:

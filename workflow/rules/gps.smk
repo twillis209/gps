@@ -17,16 +17,16 @@ rule compute_gps_for_trait_pair:
       gps_file = "results/pid_{imd}/pid_{imd}_{snp_set}_gps_value.tsv",
      log:
       log_file = "results/pid_{imd}/pid_{imd}_{snp_set}_gps_value.log",
-      perturbed_data_file = "results/pid_{imd}/pid_{imd}_{snp_set}_perturbed.tsv"
+      perturbed_data_file = "results/pid_{imd}/pid_{imd}_{snp_set}_perturbed.tsv",
      params:
-         no_of_pert_iterations = 400,
-         epsilon_multiple = 1e8
+         no_of_pert_iterations = 300,
+         epsilon_multiple = 2.0
      threads: 1
      resources:
          time = 10
      group: "gps"
      shell:
-      "workflow/scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p {params.no_of_pert_iterations} -e {params.epsilon_multiple} -l -o {output.gps_file} -g {log.log_file} -t {log.perturbed_data_file}"
+         "workflow/scripts/gps_cpp/build/apps/computeGpsCLI -i {input} -a P.A -b P.B -c pid -d {wildcards.imd} -n {threads} -p {params.no_of_pert_iterations} -e {params.epsilon_multiple} -l -o {output} -g {log} -t {log.perturbed_data_file}"
 
 rule compute_gps_for_trait_pair_with_naive_ecdf_algo:
     input:
