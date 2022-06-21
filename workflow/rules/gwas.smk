@@ -1,3 +1,68 @@
+#rule download_gwas:
+#    output:
+#        "resources/gwas/{trait}.tsv.gz"
+#    params:
+#        url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
+#    resources:
+#        time = 5
+#    group: "gwas"
+#    shell:
+#        """
+#        wget -O {output} {params.url}
+#        """
+
+# TODO rewrite pipeline to handle temporary dir, work without cd etc.
+# TODO pipeline is currently handling rm of a lot of stuff
+# TODO can only be run serially
+
+rule process_gwas:
+    input:
+        ancient("resources/gwas/{trait}.tsv.gz")
+    output:
+        temp_input_cp = temp("workflow/scripts/GWAS_tools/01-Pipeline/{trait}.tsv.gz"),
+        processed_file = temp("results/processed_gwas/{trait,[^\_]+}.tsv.gz")
+    params:
+        gwas_tools_dir = "workflow/scripts/GWAS_tools/01-Pipeline",
+        pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz",
+        is_ukbb = lambda w: "true" if w.trait in ukbb_traits else "false",
+        temp_input_cp_decompressed_name = "{trait}.tsv",
+        temp_input_cp_name = "{trait}.tsv.gz"
+    resources:
+        time = 15
+    group: "gwas"
+    shell:
+        """
+        # Need to remove the dash as this has special meaning in the pipeline
+
+        cp {input} {output.temp_input_cp}
+        cd {params.gwas_tools_dir}
+
+        if [ "{params.is_ukbb}" = "true" ]; then
+            zcat {params.temp_input_cp_name} | tr ':' '\t' >{params.temp_input_cp_decompressed_name};
+            sed -i 's/variant/chrom\tbp\tref\talt/' {params.temp_input_cp_decompressed_name};
+            gzip -f {params.temp_input_cp_decompressed_name}
+        fi
+
+        ./pipeline_v5.3.2_beta.sh -f {wildcards.trait}.tsv.gz -b {wildcards.trait}
+        cd ../../../..
+        mv {params.pipeline_output_file} {output.processed_file}
+        """
+
+rule recalculate_p_values:
+    input:
+        ancient("results/processed_gwas/{trait}.tsv.gz")
+    output:
+        "results/processed_gwas/{trait,[^\_]+}_recalculated_p.tsv.gz"
+    params:
+        beta_col = 'BETA',
+        se_col = 'SE',
+        p_col = 'P'
+    threads: 4
+    resources:
+        time = 5
+    group: "gwas"
+    script: "../scripts/recalculate_p_values.R"
+
 rule join_pair_gwas:
     input:
         A = "resources/gwas/{trait_A}.tsv.gz",
