@@ -1,15 +1,28 @@
-#rule download_gwas:
-#    output:
-#        temp("resources/gwas/{trait}.tsv.gz")
-#    params:
-#        url = lambda w: metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
-#    resources:
-#        time = 5
-#    group: "gwas"
-#    shell:
-#        """
-#        wget -O {output} {params.url}
-#        """
+def get_url(w):
+    url = metadata_daf.loc[metadata_daf['abbrv'] == w.trait, 'URL'].values[0]
+
+    #if url.startswith('s3'):
+    #    url = 'http://' + url.replace('s3://', 's3.')
+
+    return url
+
+rule download_gwas:
+    output:
+        "resources/gwas/{trait}.tsv.gz"
+    params:
+        url = get_url
+    resources:
+        time = 5
+    group: "gwas"
+    shell:
+        """
+        if [ {params.url} ]; then
+            wget -O {output} {params.url}
+        else
+            exit -1 
+        fi;
+
+        """
 
 # TODO rewrite pipeline to handle temporary dir, work without cd etc.
 # TODO pipeline is currently handling rm of a lot of stuff
@@ -68,6 +81,34 @@ rule recalculate_p_values:
     group: "gwas"
     script: "../scripts/recalculate_p_values.R"
 
+rule row_count_processed_gwas:
+    input:
+        "results/processed_gwas/{trait,[^\_]+}.tsv.gz"
+    output:
+        "results/processed_gwas/row_counts/{trait,[^\_]+}_n.tsv"
+    shell:
+        """
+        row_count=$(zcat {input} | wc -l | cut -d' ' -f1)
+
+        let row_count=row_count-1
+
+        echo -e "Trait\trows" >> {output}
+        echo -e "{wildcards.trait}\t$row_count" >> {output}
+        """
+
+rule compile_processed_gwas_row_counts:
+    input:
+        [f"results/processed_gwas/row_counts/{x}_n.tsv" for x in ukbb_traits+finngen_traits+misc_traits]
+    output:
+        "results/processed_gwas/row_counts/compiled_n.tsv"
+    shell:
+        """
+        echo -e "Trait\trows" >> {output}
+
+        for x in {input}; do
+            tail -n +2 $x >>{output};
+        done
+        """
 
 rule join_pair_gwas:
     input:
@@ -213,3 +254,32 @@ rule unzip_pruned_joined_gwas:
     group: "gps"
     shell:
         "gunzip -c {input} >{output}"
+
+rule row_count_pruned_joined_gwas:
+    input:
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}.tsv"
+    output:
+        "results/merged_gwas/pid_{imd}/pid_{imd}_{snp_set}/pruned_pid_{imd}_{snp_set}_n.tsv"
+    shell:
+        """
+        row_count=$(wc -l {input} | cut -d' ' -f1)
+
+        let row_count=row_count-1
+
+        echo -e "Trait_A\tTrait_B\trows" >> {output}
+        echo -e "pid\t{wildcards.imd}\t$row_count" >> {output}
+        """
+
+rule compile_pruned_joined_row_counts:
+    input:
+        ["results/merged_gwas/%s/%s_{snp_set}/pruned_%s_{snp_set}_n.tsv" % (x,x,x) for x in trait_pairs]
+    output:
+        "results/merged_gwas/{snp_set}_pruned_joined_row_counts.tsv"
+    shell:
+        """
+        echo -e "Trait_A\tTrait_B\trows" >> {output}
+
+        for x in {input}; do
+            tail -n +2 $x >>{output};
+        done
+        """

@@ -2,8 +2,6 @@ library(data.table)
 
 setDTthreads(snakemake@threads)
 
-save.image('process_sum_stats.RData')
-
 gwas_file <- snakemake@input[['gwas_file']]
 metadata_file <- snakemake@input[['metadata_file']]
 trait_A <- snakemake@params[['trait_A']]

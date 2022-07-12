@@ -12,7 +12,7 @@ rule run_sumher_on_finngen_traits:
     input:
         [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors" for trait_pair in finngen_pairs]
 
-top_imds = ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'pbc', 'ra', 'igm']
+top_imds = ['uc-delange', 'sys-scl', 'lada', 't1d', 'psc', 'jia', 'addi', 'ms', 'igad', 'sle', 'pso', 'pbc', 'ra', 'igm', 'asthma', 'sjogren', 'hypothy', 'hyperthy', 'polymyal', 'still', 'ank-spond', 'spondylo', 'licp']
 
 top_imd_pairs = list(chain(*[[f"{top_imds[i]}_{top_imds[j]}" for j in range(i+1,len(top_imds))] for i in range(len(top_imds))]))
 
@@ -66,3 +66,7 @@ rule compile_top_imd_sumher_results:
                     sumstat_predictors = overlap_infile.readline().split()[1]
                     overlap = overlap_infile.readline().split()[1]
                     outfile.write(f"{trait_A}\t{trait_B}\t{tag_predictors}\t{sumstat_predictors}\t{overlap}\t{float(h2_A)}\t{float(h2_A_se)}\t{float(h2_B)}\t{float(h2_B_se)}\t{float(cov)}\t{float(cov_se)}\t{float(rg)}\t{float(rg_se)}\t{rg_z}\t{rg_p}\n")
+
+rule process_ex_datasets:
+    input:
+        [f"results/processed_gwas/{x}_recalculated_p.tsv.gz" for x in ex_traits]

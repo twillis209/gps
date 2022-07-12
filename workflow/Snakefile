@@ -126,6 +126,18 @@ misc_traits = ["pbc",
                "igm",
                "pid"]
 
+ex_traits = ["rhin-ex",
+             "asthma-ex",
+             "cardiomyo-ex",
+             "endomet-ex",
+             "ibs-ex",
+             "leio-ex",
+             "cholelith-ex",
+             "osteo-ex",
+             "hyperchol-ex",
+             "md-ex",
+             "glaucoma-ex"]
+
 include: 'rules/1000g_reference.smk'
 include: 'rules/gwas.smk'
 include: 'rules/gps.smk'
