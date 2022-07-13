@@ -66,7 +66,3 @@ rule compile_top_imd_sumher_results:
                     sumstat_predictors = overlap_infile.readline().split()[1]
                     overlap = overlap_infile.readline().split()[1]
                     outfile.write(f"{trait_A}\t{trait_B}\t{tag_predictors}\t{sumstat_predictors}\t{overlap}\t{float(h2_A)}\t{float(h2_A_se)}\t{float(h2_B)}\t{float(h2_B_se)}\t{float(cov)}\t{float(cov_se)}\t{float(rg)}\t{float(rg_se)}\t{rg_z}\t{rg_p}\n")
-
-rule process_ex_datasets:
-    input:
-        [f"results/processed_gwas/{x}_recalculated_p.tsv.gz" for x in ex_traits]

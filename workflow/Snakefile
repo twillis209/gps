@@ -75,10 +75,7 @@ permutable_trait_pairs = [x for x in trait_pairs if x not in impermutable_trait_
 ukbb_traits = ["asthma",
                "rhin",
                "gout"]
-# These are in the 'PanUKBB collection' and have broken URLs
-#"dyschr-vit"
-#"desq",
-#"divert",
+
 finngen_traits = ["hyperthy",
                   "agran",
                   "sarc",
@@ -126,21 +123,10 @@ misc_traits = ["pbc",
                "igm",
                "pid"]
 
-ex_traits = ["rhin-ex",
-             "asthma-ex",
-             "cardiomyo-ex",
-             "endomet-ex",
-             "ibs-ex",
-             "leio-ex",
-             "cholelith-ex",
-             "osteo-ex",
-             "hyperchol-ex",
-             "md-ex",
-             "glaucoma-ex"]
-
 include: 'rules/1000g_reference.smk'
 include: 'rules/gwas.smk'
 include: 'rules/gps.smk'
 include: 'rules/cfdr.smk'
 include: 'rules/sumher.smk'
 include: 'rules/export.smk'
+include: 'rules/gps_paper.smk'

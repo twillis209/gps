@@ -1,6 +1,5 @@
 library(data.table)
 
-
 setDTthreads(snakemake@threads)
 
 sum_stats_dat <- fread(snakemake@input[[1]], sep = '\t', header = T)

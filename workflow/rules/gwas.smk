@@ -8,7 +8,7 @@ def get_url(w):
 
 rule download_gwas:
     output:
-        "resources/gwas/{trait}.tsv.gz"
+        "resources/gwas/{trait,.+!(-meta-ex)}.tsv.gz"
     params:
         url = get_url
     resources:
@@ -24,15 +24,28 @@ rule download_gwas:
 
         """
 
+rule drop_extraneous_columns:
+    input:
+        "resources/gwas/{trait}.tsv.gz"
+    output:
+        temp("results/processed_gwas/{trait}_pre_pipeline.tsv.gz")
+    params:
+        columns_to_drop = ["af_cases_meta_hq", "af_controls_meta_hq", "beta_meta_hq", "se_meta_hq", "pval_meta_hq", "pval_heterogeneity_hq", "af_cases_meta", "af_controls_meta", "beta_meta", "se_meta", "pval_meta", "pval_heterogeneity", "af_cases_AFR", "af_cases_AMR", "af_cases_CSA", "af_cases_EAS", "af_cases_EUR", "af_cases_MID", "af_controls_AFR", "af_controls_AMR", "af_controls_CSA", "af_controls_EAS", "af_controls_EUR", "af_controls_MID", "beta_AFR", "beta_AMR", "beta_CSA", "beta_EAS", "beta_MID", "se_AFR", "se_AMR", "se_CSA", "se_EAS", "se_MID", "pval_AFR", "pval_AMR", "pval_CSA", "pval_EAS", "pval_MID", "low_confidence_AFR", "low_confidence_AMR", "low_confidence_CSA", "low_confidence_EAS", "low_confidence_EUR", "low_confidence_MID", "nearest_genes"]
+    threads: 4
+    resources:
+        time = 20
+    group: "gwas"
+    script: "../scripts/drop_extraneous_columns.R"
+
 # TODO rewrite pipeline to handle temporary dir, work without cd etc.
 # TODO pipeline is currently handling rm of a lot of stuff
 # TODO can only be run serially
 rule process_gwas:
     input:
-        ancient("resources/gwas/{trait}.tsv.gz")
+        "results/processed_gwas/{trait}_pre_pipeline.tsv.gz"
     output:
         temp_input_cp = temp("workflow/scripts/GWAS_tools/01-Pipeline/{trait}.tsv.gz"),
-        processed_file = temp("results/processed_gwas/{trait,[^\_]+}.tsv.gz")
+        processed_file = temp("results/processed_gwas/{trait,[^\_]+}_post_pipeline.tsv.gz")
     params:
         gwas_tools_dir = "workflow/scripts/GWAS_tools/01-Pipeline",
         pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz",
@@ -41,7 +54,7 @@ rule process_gwas:
         temp_input_cp_decompressed_name = "{trait}.tsv",
         temp_input_cp_name = "{trait}.tsv.gz"
     resources:
-        time = 15
+        time = 90
     group: "gwas"
     shell:
         """
@@ -62,13 +75,15 @@ rule process_gwas:
         fi
 
         ./pipeline_v5.3.2_beta.sh -f {wildcards.trait}.tsv.gz -b {wildcards.trait}
+
         cd ../../../..
+
         mv {params.pipeline_output_file} {output.processed_file}
         """
 
 rule recalculate_p_values:
     input:
-        ancient("results/processed_gwas/{trait}.tsv.gz")
+        ancient("results/processed_gwas/{trait}_post_pipeline.tsv.gz")
     output:
         "results/processed_gwas/{trait,[^\_]+}_recalculated_p.tsv.gz"
     params:
@@ -77,7 +92,7 @@ rule recalculate_p_values:
         p_col = 'P'
     threads: 4
     resources:
-        time = 5
+        time = 20
     group: "gwas"
     script: "../scripts/recalculate_p_values.R"
 
