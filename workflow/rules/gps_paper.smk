@@ -50,8 +50,12 @@ rule create_pan_ukbb_meta_file:
 
 rule estimate_rg_with_ldak_thin_for_gps_paper_traits:
     input:
-        [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors" for trait_pair in ex_trait_pairs if trait_pair not in existing_pairs]
+        [y for y in [f"results/ldak/ldak-thin/{trait_pair}/{trait_pair}_all.cors" for trait_pair in ex_trait_pairs if trait_pair not in existing_pairs] if not os.path.exists(y)]
 
 rule process_ex_datasets:
     input:
         [f"results/processed_gwas/{x}_recalculated_p.tsv.gz" for x in ex_traits]
+
+rule process_pan_ukbb_datasets:
+    input:
+        [f"results/processed_gwas/{x}_recalculated_p.tsv.gz" for x in pan_ukbb_ex_traits]

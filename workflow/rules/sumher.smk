@@ -134,9 +134,9 @@ rule process_sum_stats:
         beta_b_col = 'BETA.B',
         se_a_col = 'SE.A',
         se_b_col = 'SE.B'
-    threads: 4
+    threads: 8
     resources:
-        time = 10
+        time = 20
     group: "sumher"
     script:
         "../scripts/process_sum_stats.R"

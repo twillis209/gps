@@ -12,7 +12,7 @@ rule download_gwas:
     params:
         url = get_url
     resources:
-        time = 5
+        time = 8
     group: "gwas"
     shell:
         """
@@ -22,13 +22,15 @@ rule download_gwas:
             exit -1 
         fi;
 
+        if 
+
         """
 
 rule drop_extraneous_columns:
     input:
         "resources/gwas/{trait}.tsv.gz"
     output:
-        temp("results/processed_gwas/{trait}_pre_pipeline.tsv.gz")
+        "results/processed_gwas/{trait}_pre_pipeline.tsv.gz"
     params:
         columns_to_drop = ["af_cases_meta_hq", "af_controls_meta_hq", "beta_meta_hq", "se_meta_hq", "pval_meta_hq", "pval_heterogeneity_hq", "af_cases_meta", "af_controls_meta", "beta_meta", "se_meta", "pval_meta", "pval_heterogeneity", "af_cases_AFR", "af_cases_AMR", "af_cases_CSA", "af_cases_EAS", "af_cases_EUR", "af_cases_MID", "af_controls_AFR", "af_controls_AMR", "af_controls_CSA", "af_controls_EAS", "af_controls_EUR", "af_controls_MID", "beta_AFR", "beta_AMR", "beta_CSA", "beta_EAS", "beta_MID", "se_AFR", "se_AMR", "se_CSA", "se_EAS", "se_MID", "pval_AFR", "pval_AMR", "pval_CSA", "pval_EAS", "pval_MID", "low_confidence_AFR", "low_confidence_AMR", "low_confidence_CSA", "low_confidence_EAS", "low_confidence_EUR", "low_confidence_MID", "nearest_genes"]
     threads: 4
@@ -45,7 +47,7 @@ rule process_gwas:
         "results/processed_gwas/{trait}_pre_pipeline.tsv.gz"
     output:
         temp_input_cp = temp("workflow/scripts/GWAS_tools/01-Pipeline/{trait}.tsv.gz"),
-        processed_file = temp("results/processed_gwas/{trait,[^\_]+}_post_pipeline.tsv.gz")
+        processed_file = "results/processed_gwas/{trait,[^\_]+}_post_pipeline.tsv.gz"
     params:
         gwas_tools_dir = "workflow/scripts/GWAS_tools/01-Pipeline",
         pipeline_output_file = lambda w: f"workflow/scripts/GWAS_tools/01-Pipeline/{w.trait}-hg38.tsv.gz",
@@ -96,11 +98,11 @@ rule recalculate_p_values:
     group: "gwas"
     script: "../scripts/recalculate_p_values.R"
 
-rule row_count_processed_gwas:
+rule row_count_post_pipeline_gwas:
     input:
-        "results/processed_gwas/{trait,[^\_]+}.tsv.gz"
+        "results/processed_gwas/{trait,[^\_]+}_post_pipeline.tsv.gz"
     output:
-        "results/processed_gwas/row_counts/{trait,[^\_]+}_n.tsv"
+        "results/processed_gwas/row_counts/post_pipeline/{trait,[^\_]+}_n.tsv"
     shell:
         """
         row_count=$(zcat {input} | wc -l | cut -d' ' -f1)
@@ -109,6 +111,20 @@ rule row_count_processed_gwas:
 
         echo -e "Trait\trows" >> {output}
         echo -e "{wildcards.trait}\t$row_count" >> {output}
+        """
+
+rule tabulate_rows_per_chromosome:
+    input:
+        "results/processed_gwas/{trait,[^\_]+}_recalculated_p.tsv.gz"
+    output:
+        "results/processed_gwas/row_counts/recalculated_p/{trait,[^\_]+}_n.txt"
+    shell:
+        """
+        col_index=$(zcat {input} | head -n 1 | tr '\t' '\n' | nl | grep CHR38 | cut -f1 | sed 's/[[:space:]]//g')
+
+        echo $col_index
+
+        zcat {input} | cut -d$'\t' -f$col_index | sort -g | uniq -c >{output}
         """
 
 rule compile_processed_gwas_row_counts:
@@ -141,8 +157,7 @@ rule join_pair_gwas:
         alt_col = 'ALT',
         p_col = 'P',
         beta_col = 'BETA',
-        se_col = 'SE',
-        recalculate_p = True
+        se_col = 'SE'
     group: "gps"
     script:
         "../scripts/join_pair_gwas_stats.R"

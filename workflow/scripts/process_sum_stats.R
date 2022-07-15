@@ -21,8 +21,10 @@ gwas_dat <- fread(gwas_file, sep = '\t', header = T, select = c(chr_col, bp_col,
 
 meta_dat <- fread(metadata_file, sep = '\t', header = T)
 trait_A_N <- meta_dat[abbrv == trait_A, N]
-trait_B_N <- meta_dat[abbrv == trait_B, N]
+trait_A_N <- gsub(',', '', trait_A_N)
 
+trait_B_N <- meta_dat[abbrv == trait_B, N]
+trait_B_N <- gsub(',', '', trait_B_N)
 # The SumHer documentation states that A1 is the 'test allele' and A2 is the 'other allele', so I take this to mean A1 is the minor allele and A2 the major allele
 
 setnames(gwas_dat, c(chr_col, bp_col, alt_col, ref_col), c('chr', 'bp', 'A1', 'A2'))
